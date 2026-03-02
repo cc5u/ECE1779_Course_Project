@@ -63,6 +63,8 @@ Persistent storage will be implemented using DigitalOcean Volumes attached to th
 - Data durability across container restarts
 - Data persistence across service updates or redeployments
 
+Digital Spaces for storing user-uploaded images, and the database stores only image URLs.
+
 #### 4. Deployment Provider
 
 The application will be deployed on a DigitalOcean Droplet configured as a Docker Swarm manager node.
