@@ -102,20 +102,20 @@ A **GitHub Actions** pipeline will automate:
 ---
 
 ## Tentative Plan
-Phase 1 Proposal and local foundation
-From now to March 1 2026, we will finalize the scope and data model, set up Docker Compose with frontend backend and PostgreSQL, and implement the minimal end to end flow including creating a case and listing cases.
 
-Phase 2 Feature build for presentation
-From March 2 2026 to March 15 2026, we will implement authentication and authorization, comments, and basic search and filtering. We will connect the frontend pages to the backend endpoints and ensure the core workflow is stable.
+| Week | I-Hsuan Ho | Cheng Kai Weng | Chia-Chun Wu | Kuan-Yu Chang |
+|------|-------------|----------------|---------------|--------------|
+| **Week 1** (March 1, 2026) | • Implement PostgreSQL integration<br>• Set up Docker and Docker Compose for local development | • Implement basic lost report creation and retrieval | • Implement backend API using Node.js and Express | • Design system architecture<br>• Define database schema |
+| **Week 2** (March 8, 2026) | • Implement chat functionality (basic version using WebSocket) | • Implement image upload functionality | • Implement map visualization<br>• Implement report detail page functionality | • Implement report status management |
+| **Week 3** (March 15, 2026) | • Initialize Docker Swarm cluster on DigitalOcean<br>• Configure Swarm manager and services | • Deploy backend API as replicated Swarm service<br>• Deploy PostgreSQL service with persistent Docker volume | • Configure Swarm networking and reverse proxy (Nginx) | • Implement background cleanup service (scheduled job) |
+| **Week 4** (March 22, 2026) | • Perform system testing<br>• Prepare presentation and demo | • Configure monitoring tools (DigitalOcean metrics, service logs)<br>• Prepare presentation and demo | • Implement GitHub Actions CI/CD pipeline<br>• Prepare presentation and demo | • Fix bugs and improve stability<br>• Prepare presentation and demo |
 
-Phase 3 Demo ready system with Swarm and monitoring
-From March 16 2026 to March 24 2026, we will deploy to DigitalOcean using Docker Swarm mode, configure replication for frontend and backend, attach DigitalOcean Volumes for PostgreSQL persistence, and set up DigitalOcean monitoring dashboards and alerts. We will also complete the map view and real time updates using WebSockets so the demo can show live updates.
-
-Phase 4 Final deliverable hardening
-From March 25 2026 to April 4 2026, we will improve error handling and testing, finalize backup and recovery, polish documentation, and record the video demo. We will also ensure the repository is reproducible and the final report is complete.
+---
 
 ## Initial Independent Reasoning (Before Using AI)
 Our team wanted to build a university campus focused lost and found platform with a clear and testable user flow. The initial concept was simple: a user can create a lost item case with structured fields such as date, building, and room, and other users can respond on the same case when they have leads or found the item. We chose DigitalOcean for deployment, Docker and Docker Compose for local development, PostgreSQL for persistence, DigitalOcean Volumes for durable database storage, and DigitalOcean Spaces for image uploads with the database storing image links. For orchestration, we decided to use Docker Swarm mode so we can demonstrate replication and load balancing for the frontend and backend while keeping the system understandable. Before using any AI tools, we expected the hardest parts would be reliable persistence under orchestration, stable HTTPS routing for both services, and secure real time updates so only authorized users can perform sensitive actions. Our early plan was to build a minimal end to end workflow locally first, then add authentication and comments, then implement real time updates and the map view, and finally deploy on DigitalOcean with monitoring and alerts. 
+
+---
 ## AI Assistance Disclosure
 AI tools were used only for writing support for this proposal. The project idea, scope, feature list, and architecture decisions were created by the team without AI. AI was used to improve clarity, organization, and wording, and to help us ensure the proposal explicitly covers all required items such as Docker Compose, PostgreSQL persistence, DigitalOcean Volumes, Docker Swarm orchestration, and monitoring. 
 After receiving AI suggestions, we reviewed each change and kept only content that matched our intended scope and timeline. We also checked that every technical statement remained accurate and feasible. One example is that AI suggested making the mapping between course requirements and our planned features more explicit. We adopted that structure, but the actual decisions, including choosing Docker Swarm and building a frontend for a clear demo flow, were made by the team. 
