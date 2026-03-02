@@ -1,20 +1,19 @@
 # ECE1779 Project Proposal
-- I Hsuan Ho 1012638022
-- Cheng Kai Weng 1005061246
-- Kuan Yu Chang 1007359760
-- Chia Chun Wu 1012134101
+- I-Hsuan Ho 1012638022
+- Cheng-Kai Weng 1005061246
+- Kuan-Yu Chang 1007359760
+- Chia-Chun Wu 1012134101
   
 ## Deployment and Stack
 
 
 ## Motivation
-Lost item reporting on campus is currently fragmented across group chats, informal posts, and physical offices. This creates three recurring problems.
 
-- Information is not centralized, so a finder cannot quickly match an item to the right owner case
-- Updates are not timely, so leads get buried and follow up is difficult
-- Privacy risk increases when users post phone numbers or personal contact details publicly
+Losing personal belongings on large university campuses such as the University of Toronto (UofT) is a common and disruptive problem. Items are frequently misplaced in lecture halls, libraries, and shared study spaces. Current recovery methods are fragmented: individuals rely on physical lost-and-found offices or informal social media posts, both of which lack centralized visibility, structured reporting, and real-time communication.
 
-We will build a campus focused platform that centralizes lost item cases, supports structured search by time and location, and enables safe contact through the platform. Target users include students, staff, visitors, and basic administrators who can moderate spam and abuse.
+Existing technological solutions also have limitations. Apple’s **Find My** network and AirTag devices are effective within the Apple ecosystem but require dedicated hardware and primarily support pre-tagged items. Android’s tracking tools similarly focus on registered electronic devices rather than arbitrary belongings such as wallets or bags. Social media platforms provide accessibility but lack geospatial visualization, workflow structure, and persistent state management.
+
+To address this gap, we propose a lost-and-found web application tailored specifically to the UofT campus. Target users include students, staff, and basic administrators who can moderate spam and abuse. Restricting the scope to a defined university community reduces spam and abuse risks, enables clearer moderation mechanisms, and keeps the system manageable within the project timeline. The proposed cloud-native solution will allow users to report lost items, visualize them on a map, upload possible sightings, and communicate within a structured environment.
 
 
 ## Objective and Key Features
