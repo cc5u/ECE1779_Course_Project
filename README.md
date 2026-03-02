@@ -3,10 +3,8 @@
 - Cheng-Kai Weng 1005061246
 - Kuan-Yu Chang 1007359760
 - Chia-Chun Wu 1012134101
-  
-## Deployment and Stack
 
-
+---
 ## Motivation
 
 Losing personal belongings on large university campuses such as the University of Toronto (UofT) is a common and disruptive problem. Items are frequently misplaced in lecture halls, libraries, and shared study spaces. Current recovery methods are fragmented: individuals rely on physical lost-and-found offices or informal social media posts, both of which lack centralized visibility, structured reporting, and real-time communication.
@@ -15,83 +13,93 @@ Existing technological solutions also have limitations. Apple’s Find My networ
 
 To address this gap, we propose a lost-and-found web application tailored specifically to the UofT campus. Target users include students, staff, and basic administrators who can moderate spam and abuse. Restricting the scope to a defined university community reduces spam and abuse risks, enables clearer moderation mechanisms, and keeps the system manageable within the project timeline. The proposed cloud-native solution will allow users to report lost items, visualize them on a map, upload possible sightings, and communicate within a structured environment.
 
-
+---
 ## Objective and Key Features
-### Objectives
-- Provide an end to end workflow from reporting to contact to resolution
-- Ensure the application is stateful with durable data that survives container restart and redeploy
-- Deploy to DigitalOcean and demonstrate containerization, persistence, orchestration, and monitoring
-- Build a simple but complete frontend that makes the demo clear and shows user flow end to end
-- Implement at least two advanced features with clear demonstration value
 
-### Core Features
+### Objective
 
-#### Case reporting and management
-- Create a case with item name, category, description, lost time, building, room, and optional images
-- Case status lifecycle with Open, In Contact, Resolved, Closed
-- Owners can edit and close their own cases
+The objective of this project is to design, implement, and deploy a stateful cloud-native lost-and-found web application for the University of Toronto campus using Docker and Docker Swarm. The system will support geospatial reporting, persistent data storage, real-time communication, and automated service deployment while demonstrating container orchestration, scalability, and monitoring in a production-like cloud environment.
 
-#### Search and browsing
-- Search by building, date range, category, and keyword
-- Sort by most recent updates and support pagination
+The application will be deployed on **DigitalOcean** using a virtual machine configured as a Docker Swarm cluster.
 
-#### Comments and contact
-- Comment threads under each case for leads and questions
-- Platform based contact workflow using contact requests or message threads to avoid public personal contact details
 
-#### Map view
-- Display active cases as map pins based on building location
-- Filters by building and category
-- Clicking a pin opens the case detail view
-- Map data uses OpenStreetMap tiles and a simple web map library such as Leaflet
+### Core Technical Components
 
-#### Frontend user flow
-- A homepage that lists recent cases and supports basic filters
-- A case detail page that shows case information, images, status, and comments
-- A map page that shows active cases as pins and links to case detail views
-- A create case page for logged in users
-- Real time updates shown in the case detail page when new comments or status changes occur
+#### 1. Containerization and Local Development
 
-#### Admin moderation
-- Remove spam comments
-- Handle reports
-- Ban abusive users in a basic first version
+All services will be containerized using **Docker**.
 
-### Advanced Features
-We will implement at least two, and aim for three.
+Local development will use **Docker Compose** to run:
 
-- Real time updates using WebSockets for new comments and status changes
-- Security enhancements including authentication, authorization, HTTPS, and secrets management
-- Backup and recovery using scheduled database dumps to object storage and a documented restore process
+- Backend API service
+- PostgreSQL database
+- Background cleanup service
 
-## Core Technical Requirements Mapping
+#### 2. Orchestration: Docker Swarm
 
-### Containerization and Local Development
-- Docker images for the backend service, the frontend service, and the database
-- Docker Compose for local multi container development
+Production deployment will use **Docker Swarm** for orchestration.
 
-### State Management and Persistent Storage
-- PostgreSQL stores users, cases, comments, and lead reports
-- PostgreSQL data directory is stored on DigitalOcean Volumes so data persists across restarts
-- Case images are stored in DigitalOcean Spaces, and the database stores only image URLs
+Swarm will be used to:
 
-### Deployment Provider
-- DigitalOcean as the only cloud deployment environment
+- Deploy services using `docker stack deploy`
+- Run the backend API with **multiple replicas**
+- Provide built-in load balancing via the routing mesh
+- Automatically restart failed containers
+- Manage internal service networking
 
-### Orchestration Approach
-We will use Docker Swarm mode on DigitalOcean Droplets to satisfy the orchestration requirement and to demonstrate replication, service discovery, and rolling updates.
+#### 3. Database Schema and Persistent Storage
 
-- Create a small Swarm cluster on DigitalOcean Droplets
-- Run the backend service with multiple replicas to demonstrate replication and load balancing
-- Run the frontend service with multiple replicas so user traffic can be served reliably
-- Run PostgreSQL as a single replica pinned to the node with the attached volume
-- Use a reverse proxy for HTTPS and routing so the frontend and backend are reachable through stable public endpoints
+The system uses **PostgreSQL** as the relational database.
 
-### Monitoring and Observability
-- Use DigitalOcean monitoring dashboards and logs
-- Track CPU, memory, disk usage, and container restarts
-- Configure alerts for resource pressure such as low disk space on the volume
-- Provide a health check endpoint for demo reliability
+Core tables include:
+
+- `users` (authentication and roles)
+- `lost_reports` (item details, geolocation, status)
+- `sightings` (possible found submissions)
+- `messages` (chat history per report)
+
+Persistent storage will be implemented using **Docker volumes** attached to the PostgreSQL service to ensure:
+
+- Data durability across container restarts
+- Data persistence across service updates or redeployments
+
+#### 4. Deployment Provider
+
+The application will be deployed on a **DigitalOcean Droplet** configured as a Docker Swarm manager node.
+
+Deployment components include:
+
+- Swarm services (API, database, cleanup worker)
+- Reverse proxy (Nginx)
+
+#### 5. Monitoring and Observability
+
+Monitoring will be implemented using:
+
+- DigitalOcean system metrics (CPU, memory, disk usage)
+- Docker service logs (`docker service logs`)
+- Health check endpoints in the backend API
+
+Alerts will be configured for resource thresholds where possible.
+
+### Planned Advanced Features
+
+#### Advanced Feature 1: Real-Time Communication
+
+The system will implement **WebSocket-based real-time messaging** for:
+
+- Chat between the item owner and the finder
+- Live report status updates
+
+#### Advanced Feature 2: CI/CD Pipeline
+
+A **GitHub Actions** pipeline will automate:
+
+- Docker image build
+- Image push to container registry
+- Redeployment to the Swarm cluster
+
+---
 
 ## Tentative Plan
 Phase 1 Proposal and local foundation
