@@ -20,16 +20,16 @@ To address this gap, we propose a lost-and-found web application tailored specif
 
 The objective of this project is to design, implement, and deploy a stateful cloud-native lost-and-found web application for the University of Toronto campus using Docker and Docker Swarm. The system will support geospatial reporting, persistent data storage, real-time communication, and automated service deployment while demonstrating container orchestration, scalability, and monitoring in a production-like cloud environment.
 
-The application will be deployed on **DigitalOcean** using a virtual machine configured as a Docker Swarm cluster.
+The application will be deployed on DigitalOcean using a virtual machine configured as a Docker Swarm cluster.
 
 
 ### Core Technical Components
 
 #### 1. Containerization and Local Development
 
-All services will be containerized using **Docker**.
+All services will be containerized using Docker.
 
-Local development will use **Docker Compose** to run:
+Local development will use Docker Compose to run:
 
 - Backend API service
 - PostgreSQL database
@@ -37,19 +37,19 @@ Local development will use **Docker Compose** to run:
 
 #### 2. Orchestration: Docker Swarm
 
-Production deployment will use **Docker Swarm** for orchestration.
+Production deployment will use Docker Swarm for orchestration.
 
 Swarm will be used to:
 
 - Deploy services using `docker stack deploy`
-- Run the backend API with **multiple replicas**
+- Run the backend API with multiple replicas
 - Provide built-in load balancing via the routing mesh
 - Automatically restart failed containers
 - Manage internal service networking
 
 #### 3. Database Schema and Persistent Storage
 
-The system uses **PostgreSQL** as the relational database.
+The system uses PostgreSQL as the relational database.
 
 Core tables include:
 
@@ -58,14 +58,14 @@ Core tables include:
 - `sightings` (possible found submissions)
 - `messages` (chat history per report)
 
-Persistent storage will be implemented using **Docker volumes** attached to the PostgreSQL service to ensure:
+Persistent storage will be implemented using DigitalOcean volumes attached to the PostgreSQL service to ensure:
 
 - Data durability across container restarts
 - Data persistence across service updates or redeployments
 
 #### 4. Deployment Provider
 
-The application will be deployed on a **DigitalOcean Droplet** configured as a Docker Swarm manager node.
+The application will be deployed on a DigitalOcean Droplet configured as a Docker Swarm manager node.
 
 Deployment components include:
 
@@ -86,14 +86,14 @@ Alerts will be configured for resource thresholds where possible.
 
 #### Advanced Feature 1: Real-Time Communication
 
-The system will implement **WebSocket-based real-time messaging** for:
+The system will implement WebSocket-based real-time messaging for:
 
 - Chat between the item owner and the finder
 - Live report status updates
 
 #### Advanced Feature 2: CI/CD Pipeline
 
-A **GitHub Actions** pipeline will automate:
+A GitHub Actions pipeline will automate:
 
 - Docker image build
 - Image push to container registry
