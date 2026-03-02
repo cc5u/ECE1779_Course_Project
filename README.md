@@ -58,7 +58,7 @@ Core tables include:
 - `sightings` (possible found submissions)
 - `messages` (chat history per report)
 
-Persistent storage will be implemented using DigitalOcean volumes attached to the PostgreSQL service to ensure:
+Persistent storage will be implemented using DigitalOcean Volumes attached to the PostgreSQL service to ensure:
 
 - Data durability across container restarts
 - Data persistence across service updates or redeployments
