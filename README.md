@@ -107,7 +107,7 @@ A GitHub Actions pipeline will automate:
 |------|-------------|----------------|---------------|--------------|
 | **Week 1** (March 1, 2026) | • Implement PostgreSQL integration<br>• Set up Docker and Docker Compose for local development | • Implement basic lost report creation and retrieval | • Implement backend API using Node.js and Express | • Design system architecture<br>• Define database schema |
 | **Week 2** (March 8, 2026) | • Implement chat functionality (basic version using WebSocket) | • Implement image upload functionality | • Implement map visualization<br>• Implement report detail page functionality | • Implement report status management |
-| **Week 3** (March 15, 2026) | • Initialize Docker Swarm cluster on DigitalOcean<br>• Configure Swarm manager and services | • Deploy backend API as replicated Swarm service<br>• Deploy PostgreSQL service with persistent Docker volume | • Configure Swarm networking and reverse proxy (Nginx) | • Implement background cleanup service (scheduled job) |
+| **Week 3** (March 15, 2026) | • Initialize Docker Swarm cluster on DigitalOcean<br>• Configure Swarm manager and services | • Deploy backend API as replicated Swarm service<br>• Deploy PostgreSQL service with persistent DigitalOcean Volumes | • Configure Swarm networking and reverse proxy (Nginx) | • Implement background cleanup service (scheduled job) |
 | **Week 4** (March 22, 2026) | • Perform system testing<br>• Prepare presentation and demo | • Configure monitoring tools (DigitalOcean metrics, service logs)<br>• Prepare presentation and demo | • Implement GitHub Actions CI/CD pipeline<br>• Prepare presentation and demo | • Fix bugs and improve stability<br>• Prepare presentation and demo |
 
 ---
