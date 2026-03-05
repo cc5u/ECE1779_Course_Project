@@ -47,6 +47,7 @@ FindIt_frontend/
 │   │   ├─ Login.tsx
 │   │   ├─ Register.tsx
 │   │   ├─ ReportDetail.tsx
+│   │   ├─ Settings.tsx
 │   │   └─ ReportLostItem.tsx
 │   │
 │   ├─ imports/
