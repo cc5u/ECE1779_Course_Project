@@ -1,9 +1,9 @@
-import {useState }  from "react";
-import { Navbar } from "../components/Navbar";
-import {User, Lock, Bell, Trash2, Save} from "lucide-react";
+import { useState } from 'react';
+import { Navbar } from '../components/Navbar';
+import { User, Lock, Bell, Trash2, Save } from 'lucide-react';
 
-export const Settings = () => {
-    const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'notifications' | 'account'>('profile');
+export default function Settings() {
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'notifications' | 'account'>('profile');
   
   // Profile state
   const [profile, setProfile] = useState({
