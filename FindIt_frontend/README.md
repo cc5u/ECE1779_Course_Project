@@ -1,94 +1,73 @@
+# React + TypeScript + Vite
 
-# FindIt Frontend
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-A front-end application for the FindIt project, built with modern web technologies.
+Currently, two official plugins are available:
 
-## Getting Started
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-### Prerequisites
-- Node.js (v22.22.0)
-- npm or yarn
+## React Compiler
 
-### Installation
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-```bash
-npm install
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-### Running the Application
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-```bash
-npm start
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
-The application will run on `http://localhost:5173`
-
-## Project Structure
-
-```
-FindIt_frontend/
-│
-├─ guidelines/
-├─ node_modules/
-│
-├─ src/
-│   ├─ components/
-│   │   ├─ figma/
-│   │   ├─ ui/
-│   │   ├─ ChatMessage.tsx
-│   │   ├─ Navbar.tsx
-│   │   ├─ ReportCard.tsx
-│   │   ├─ SightingCard.tsx
-│   │   ├─ StatusConfirmationModal.tsx
-│   │   └─ UploadFoundItemModal.tsx
-│   │
-│   ├─ pages/
-│   │   ├─ Home.tsx
-│   │   ├─ Login.tsx
-│   │   ├─ Register.tsx
-│   │   ├─ ReportDetail.tsx
-│   │   ├─ Settings.tsx
-│   │   └─ ReportLostItem.tsx
-│   │
-│   ├─ imports/
-│   │   ├─ findit-homepage-design.txt
-│   │   ├─ findit-ui-flow.md
-│   │   ├─ report-detail-page.tsx
-│   │   └─ report-lost-item.tsx
-│   │
-│   ├─ styles/
-│   │   ├─ fonts.css
-│   │   ├─ index.css
-│   │   ├─ tailwind.css
-│   │   └─ theme.css
-│   │
-│   ├─ App.tsx
-│   ├─ routes.tsx
-│   └─ main.tsx
-│
-├─ index.html
-├─ package.json
-├─ vite.config.ts
-└─ README.md
-```
-
-## Available Scripts
-
-- `npm start` - Start the development server
-- `npm build` - Build for production
-- `npm test` - Run tests
-- `npm run dev` - Run with development mode
-
-## Technologies Used
-
-- React
-- Axios (for API calls)
-- CSS/SCSS
-
-## Contributing
-
-Please follow the project's code style and submit pull requests to the main branch.
-
-## License
-
-See LICENSE file in the project root.
