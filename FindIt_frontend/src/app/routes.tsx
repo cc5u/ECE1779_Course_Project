@@ -6,5 +6,8 @@ export const router = createBrowserRouter([
         path: "/",
         Component: Login,
     },
-
+    {
+        path: "/login",
+        Component: Login,
+    }
 ]);
