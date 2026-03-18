@@ -7,11 +7,11 @@ import { RegisterInput, LoginInput } from "../utils/validation";
 const SALT_ROUNDS = 12;
 
 export async function register(input: RegisterInput) {
-  const { email, password, displayName } = input;
+  const { uoftEmail, password, displayName } = input;
 
   // Check if user already exists
   const existing = await prisma.user.findUnique({
-    where: { uoftEmail: email },
+    where: { uoftEmail },
   });
   if (existing) {
     throw new AppError("An account with this email already exists", 409);
@@ -21,7 +21,7 @@ export async function register(input: RegisterInput) {
 
   const user = await prisma.user.create({
     data: {
-      uoftEmail: email,
+      uoftEmail,
       passwordHash,
       displayName,
     },
@@ -35,7 +35,7 @@ export async function register(input: RegisterInput) {
 
   const token = generateToken({
     id: user.id,
-    email: user.uoftEmail,
+    uoftEmail: user.uoftEmail,
     displayName: user.displayName,
   });
 
@@ -43,10 +43,10 @@ export async function register(input: RegisterInput) {
 }
 
 export async function login(input: LoginInput) {
-  const { email, password } = input;
+  const { uoftEmail, password } = input;
 
   const user = await prisma.user.findUnique({
-    where: { uoftEmail: email },
+    where: { uoftEmail },
   });
   if (!user) {
     throw new AppError("Invalid email or password", 401);
@@ -59,7 +59,7 @@ export async function login(input: LoginInput) {
 
   const token = generateToken({
     id: user.id,
-    email: user.uoftEmail,
+    uoftEmail: user.uoftEmail,
     displayName: user.displayName,
   });
 
