@@ -1,13 +1,143 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  uoftEmail    String   @unique @map("uoft_email")
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  reports          LostReport[] @relation("UserReports")
+  sightings        Sighting[]
+  sentMessages     Message[]    @relation("SentMessages")
+  receivedMessages Message[]    @relation("ReceivedMessages")
+
+  @@map("users")
+}
+
+model LostReport {
+  id String @id @default(uuid())
+
+  ownerId String @map("owner_id")
+  owner   User   @relation("UserReports", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  itemName    String @map("item_name")
+  description String
+
+  lostTime         DateTime @map("lost_time")
+  lostLocationText String?  @map("lost_location_text")
+
+  latitude  Decimal
+  longitude Decimal
+
+  radiusMeters Int @default(100) @map("radius_meters")
+
+  status ReportStatus @default(lost)
+
+  foundConfirmedAt DateTime? @map("found_confirmed_at")
+  expiresAt        DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  images    ReportImage[]
+  sightings Sighting[]
+  messages  Message[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@map("lost_reports")
+}
+
+model ReportImage {
+  id String @id @default(uuid())
+
+  reportId String     @map("report_id")
+  report   LostReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  objectKey String @map("object_key")
+  publicUrl String @map("public_url")
+
+  displayOrder Int @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([reportId])
+  @@map("report_images")
+}
+
+model Sighting {
+  id String @id @default(uuid())
+
+  reportId String @map("report_id")
+  finderId String @map("finder_id")
+
+  report LostReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  finder User       @relation(fields: [finderId], references: [id], onDelete: Cascade)
+
+  note String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  images SightingImage[]
+
+  @@unique([reportId, finderId])
+  @@index([reportId])
+  @@index([finderId])
+  @@map("sightings")
+}
+
+model SightingImage {
+  id String @id @default(uuid())
+
+  sightingId String   @map("sighting_id")
+  sighting   Sighting @relation(fields: [sightingId], references: [id], onDelete: Cascade)
+
+  objectKey String @map("object_key")
+  publicUrl String @map("public_url")
+
+  displayOrder Int @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sightingId])
+  @@map("sighting_images")
+}
+
+model Message {
+  id String @id @default(uuid())
+
+  reportId   String @map("report_id")
+  senderId   String @map("sender_id")
+  receiverId String @map("receiver_id")
+
+  report   LostReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  sender   User       @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User       @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  messageText String @map("message_text")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([reportId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@map("messages")
+}
+
+enum ReportStatus {
+  lost
+  possibly_found
+  found
+  archived
 }

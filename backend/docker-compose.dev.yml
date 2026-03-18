@@ -1,0 +1,16 @@
+version: "3.8"
+
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# This mounts source code for hot-reloading during development.
+
+services:
+  backend:
+    build:
+      context: .
+      target: builder
+    command: npx ts-node-dev --respawn --transpile-only src/server.ts
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+    environment:
+      NODE_ENV: development
