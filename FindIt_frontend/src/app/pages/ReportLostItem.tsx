@@ -1,31 +1,36 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import { Upload, MapPin } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 
+function LocationPicker({
+    onSelect,
+}: {
+    onSelect: (position: [number, number]) => void;
+}) {
+    useMapEvents({
+        click(event) {
+            onSelect([event.latlng.lat, event.latlng.lng]);
+        },
+    });
+
+    return null;
+}
+
 export default function ReportLostItem() {
     const [radius, setRadius] = useState(200);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [pinPosition, setPinPosition] = useState({ x: '50%', y: '50%' });
+    const [pinPosition, setPinPosition] = useState<[number, number]>([43.6532, -79.3832]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-        setSelectedFile(file);
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
         }
     }; // This function handles the file input change event.
     //  It retrieves the selected file, updates the state with the file, and generates a preview URL for displaying the image.
-
-    const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        setPinPosition({ x: `${x}%`, y: `${y}%` });
-    }; // This is a placeholder function.
-    //  In a real application, you would convert the x and y percentages to actual geographic coordinates (latitude and longitude) based on the map's bounds and projection.
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -121,44 +126,36 @@ export default function ReportLostItem() {
                     <p className="text-sm text-gray-600 mb-3">
                     Click on the map to mark where the item was lost
                     </p>
-                    <div 
-                    className="w-full h-[400px] bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg relative cursor-crosshair border-2 border-gray-300 overflow-hidden"
-                    onClick={handleMapClick}
+                    <div className="w-full h-[400px] rounded-lg overflow-hidden border-2 border-gray-300">
+                    <MapContainer
+                        center={pinPosition}
+                        zoom={13}
+                        scrollWheelZoom
+                        className="h-full w-full cursor-crosshair"
                     >
-                    {/* Grid pattern */}
-                    <div className="absolute inset-0 opacity-10">
-                        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <pattern id="map-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="gray" strokeWidth="1"/>
-                            </pattern>
-                        </defs>
-                        <rect width="100%" height="100%" fill="url(#map-grid)" />
-                        </svg>
-                    </div>
-
-                    {/* Map Label */}
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm pointer-events-none">
-                        Interactive Map
-                    </div>
-
-                    {/* Pin Marker */}
-                    <div
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                        style={{ left: pinPosition.x, top: pinPosition.y }}
-                    >
-                        {/* Radius Circle */}
-                        <div 
-                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border-2 border-blue-500 rounded-full bg-blue-500/10"
-                        style={{ 
-                            width: `${radius / 2}px`, 
-                            height: `${radius / 2}px`,
-                        }}
+                        <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
-                        {/* Pin Icon on top of circle */}
-                        <MapPin className="w-8 h-8 text-red-500 fill-red-500 relative z-10" />
+                        <LocationPicker onSelect={setPinPosition} />
+                        <Circle
+                        center={pinPosition}
+                        radius={radius}
+                        pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.15 }}
+                        />
+                        <Marker position={pinPosition}>
+                        <Popup>
+                            Lost item location
+                            <br />
+                            {pinPosition[0].toFixed(5)}, {pinPosition[1].toFixed(5)}
+                        </Popup>
+                        </Marker>
+                    </MapContainer>
                     </div>
-                    </div>
+                    <p className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+                    <MapPin className="w-4 h-4 text-red-500" />
+                    Selected coordinates: {pinPosition[0].toFixed(5)}, {pinPosition[1].toFixed(5)}
+                    </p>
                 </div>
 
                 {/* Approximate Area Radius */}

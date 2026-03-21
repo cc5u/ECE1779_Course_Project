@@ -1,4 +1,4 @@
-import { MapPin, Settings } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { ProfileDropdown } from "./ProfileDropdown";
 

@@ -9,7 +9,6 @@ interface UploadFoundItemModalProps {
 
 export function UploadFoundItemModal({ isOpen, onClose, onSubmit }: UploadFoundItemModalProps) {
   const [note, setNote] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -17,7 +16,6 @@ export function UploadFoundItemModal({ isOpen, onClose, onSubmit }: UploadFoundI
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
     }
@@ -28,7 +26,6 @@ export function UploadFoundItemModal({ isOpen, onClose, onSubmit }: UploadFoundI
     if (previewUrl) {
       onSubmit(previewUrl, note);
       setNote('');
-      setSelectedFile(null);
       setPreviewUrl(null);
       onClose();
     }
@@ -36,7 +33,6 @@ export function UploadFoundItemModal({ isOpen, onClose, onSubmit }: UploadFoundI
 
   const handleClose = () => {
     setNote('');
-    setSelectedFile(null);
     setPreviewUrl(null);
     onClose();
   };

@@ -1,5 +1,7 @@
+import { DivIcon } from 'leaflet';
 import { Plus } from 'lucide-react';
 import { Link } from 'react-router';
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { Navbar } from '../components/Navbar';
 import { ReportCard } from '../components/ReportCard';
 
@@ -15,10 +17,39 @@ export function Home() {
     ]; // This will eventually be fetched from the backend
 
     const mapPins = [
-        { id: 1, x: '25%', y: '30%', color: 'bg-red-500' },
-        { id: 2, x: '50%', y: '60%', color: 'bg-green-500' },
-        { id: 3, x: '75%', y: '20%', color: 'bg-blue-500' },
+        {
+            id: 1,
+            position: [43.6532, -79.3832] as [number, number],
+            label: 'Union Station',
+            color: '#ef4444',
+        },
+        {
+            id: 2,
+            position: [43.6465, -79.3892] as [number, number],
+            label: 'CN Tower',
+            color: '#22c55e',
+        },
+        {
+            id: 3,
+            position: [43.6677, -79.3948] as [number, number],
+            label: 'Royal Ontario Museum',
+            color: '#3b82f6',
+        },
     ]; // This will eventually be fetched from the backend
+
+    const createMarkerIcon = (color: string) =>
+        new DivIcon({
+            className: 'custom-map-pin',
+            html: `
+                <div style="position: relative; width: 20px; height: 20px;">
+                    <span style="position: absolute; inset: -10px; border-radius: 9999px; background: ${color}; opacity: 0.2;"></span>
+                    <span style="position: absolute; inset: 0; border-radius: 9999px; background: ${color}; border: 3px solid white; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);"></span>
+                </div>
+            `,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10],
+            popupAnchor: [0, -10],
+        });
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -38,37 +69,23 @@ export function Home() {
                 </p>
                 </div>
 
-                {/* Map Placeholder */}
-                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 relative">
-                {/* Grid pattern to simulate map */}
-                <div className="absolute inset-0 opacity-10">
-                    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="gray" strokeWidth="1"/>
-                        </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#grid)" />
-                    </svg>
-                </div>
-
-                {/* Map Label */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 font-medium text-lg pointer-events-none">
-                    Map View
-                </div>
-
-                {/* Map Pins */}
-                {mapPins.map((pin) => (
-                    <div
-                    key={pin.id}
-                    className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: pin.x, top: pin.y }}
-                    >
-                    <div className={`w-6 h-6 ${pin.color} rounded-full shadow-lg border-2 border-white cursor-pointer hover:scale-110 transition-transform`}>
-                        <div className={`w-12 h-12 ${pin.color} opacity-20 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-ping`}></div>
-                    </div>
-                    </div>
-                ))}
+                <div className="w-full h-full relative">
+                <MapContainer
+                    center={[43.6532, -79.3832]}
+                    zoom={13}
+                    scrollWheelZoom
+                    className="h-full w-full z-0"
+                >
+                    <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    {mapPins.map((pin) => (
+                    <Marker key={pin.id} position={pin.position} icon={createMarkerIcon(pin.color)}>
+                        <Popup>{pin.label}</Popup>
+                    </Marker>
+                    ))}
+                </MapContainer>
                 </div>
 
                 {/* Floating Action Button */}

@@ -1,5 +1,5 @@
 import {useState, useRef, useEffect} from 'react';
-import {User, Settings, LogOut, Mail, Phone} from 'lucide-react';
+import {Settings, LogOut, Mail, Phone} from 'lucide-react';
 import {Link, useNavigate} from 'react-router';
 
 export function ProfileDropdown() {
