@@ -1,11 +1,14 @@
-import { DivIcon } from 'leaflet';
+import { useEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { Link } from 'react-router';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { Navbar } from '../components/Navbar';
 import { ReportCard } from '../components/ReportCard';
 
 export function Home() {
+    const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
     const lostReports =[
         {
         itemName: 'Lost Black Wallet',
@@ -13,43 +16,128 @@ export function Home() {
         time: '2 hours ago',
         status: 'Lost' as const,
         imageUrl: 'https://images.unsplash.com/photo-1703355685552-885762b8c9b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibGFjayUyMGxlYXRoZXIlMjB3YWxsZXR8ZW58MXx8fHwxNzcyMzkyODk0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        },        
+        },
     ]; // This will eventually be fetched from the backend
 
     const mapPins = [
         {
             id: 1,
-            position: [43.6532, -79.3832] as [number, number],
-            label: 'Union Station',
-            color: '#ef4444',
+            position: [-79.3992, 43.6645] as [number, number],
+            label: 'Robarts Library',
+            color: '#d97706',
         },
         {
             id: 2,
-            position: [43.6465, -79.3892] as [number, number],
-            label: 'CN Tower',
-            color: '#22c55e',
+            position: [-79.3984, 43.6596] as [number, number],
+            label: 'Bahen Centre',
+            color: '#0f766e',
         },
         {
             id: 3,
-            position: [43.6677, -79.3948] as [number, number],
+            position: [-79.4014, 43.6629] as [number, number],
+            label: 'Sidney Smith Hall',
+            color: '#2563eb',
+        },
+        {
+            id: 4,
+            position: [-79.3948, 43.6677] as [number, number],
             label: 'Royal Ontario Museum',
-            color: '#3b82f6',
+            color: '#7c3aed',
+        },
+        {
+            id: 5,
+            position: [-79.3929, 43.6627] as [number, number],
+            label: 'Union Station',
+            color: '#dc2626',
         },
     ]; // This will eventually be fetched from the backend
 
-    const createMarkerIcon = (color: string) =>
-        new DivIcon({
-            className: 'custom-map-pin',
-            html: `
-                <div style="position: relative; width: 20px; height: 20px;">
-                    <span style="position: absolute; inset: -10px; border-radius: 9999px; background: ${color}; opacity: 0.2;"></span>
-                    <span style="position: absolute; inset: 0; border-radius: 9999px; background: ${color}; border: 3px solid white; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);"></span>
-                </div>
-            `,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-            popupAnchor: [0, -10],
+    useEffect(() => {
+        if (!mapContainerRef.current) {
+            return undefined;
+        }
+
+        const map = new maplibregl.Map({
+            container: mapContainerRef.current,
+            style: 'https://tiles.openfreemap.org/styles/bright',
+            center: [-79.3987, 43.6629],
+            zoom: 15.8,
+            pitch: 55,
         });
+
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        map.on('load', () => {
+            const firstLabelLayer = map.getStyle().layers?.find((layer) => layer.type === 'symbol')?.id;
+
+            map.addLayer(
+                {
+                    id: '3d-buildings',
+                    type: 'fill-extrusion',
+                    source: 'openmaptiles',
+                    'source-layer': 'building',
+                    minzoom: 13,
+                    paint: {
+                        'fill-extrusion-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['coalesce', ['get', 'render_height'], ['get', 'height'], 15],
+                            0, '#d9d2c3',
+                            20, '#c9bea8',
+                            60, '#b39b7a',
+                        ],
+                        'fill-extrusion-height': [
+                            'coalesce',
+                            ['get', 'render_height'],
+                            ['get', 'height'],
+                            15,
+                        ],
+                        'fill-extrusion-base': [
+                            'coalesce',
+                            ['get', 'render_min_height'],
+                            ['get', 'min_height'],
+                            0,
+                        ],
+                        'fill-extrusion-opacity': 0.68,
+                    },
+                },
+                firstLabelLayer,
+            );
+
+            const bounds = new maplibregl.LngLatBounds();
+            mapPins.forEach((pin) => bounds.extend(pin.position));
+            if (!bounds.isEmpty()) {
+                map.fitBounds(bounds, { padding: 80, maxZoom: 16.2, duration: 0 });
+            }
+        });
+
+        const markers = mapPins.map((pin) => {
+            const markerElement = document.createElement('button');
+            markerElement.type = 'button';
+            markerElement.setAttribute('aria-label', pin.label);
+            markerElement.style.width = '18px';
+            markerElement.style.height = '18px';
+            markerElement.style.borderRadius = '9999px';
+            markerElement.style.background = pin.color;
+            markerElement.style.border = '3px solid white';
+            markerElement.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.24)';
+            markerElement.style.cursor = 'pointer';
+
+            return new maplibregl.Marker({ element: markerElement, anchor: 'center' })
+                .setLngLat(pin.position)
+                .setPopup(
+                    new maplibregl.Popup({ offset: 18 }).setHTML(
+                        `<div style="font-weight:600;color:#111827;">${pin.label}</div>`,
+                    ),
+                )
+                .addTo(map);
+        });
+
+        return () => {
+            markers.forEach((marker) => marker.remove());
+            map.remove();
+        };
+    }, []);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -69,24 +157,7 @@ export function Home() {
                 </p>
                 </div>
 
-                <div className="w-full h-full relative">
-                <MapContainer
-                    center={[43.6532, -79.3832]}
-                    zoom={13}
-                    scrollWheelZoom
-                    className="h-full w-full z-0"
-                >
-                    <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    {mapPins.map((pin) => (
-                    <Marker key={pin.id} position={pin.position} icon={createMarkerIcon(pin.color)}>
-                        <Popup>{pin.label}</Popup>
-                    </Marker>
-                    ))}
-                </MapContainer>
-                </div>
+                <div ref={mapContainerRef} className="h-full w-full relative z-0" />
 
                 {/* Floating Action Button */}
                 <Link 
