@@ -1,9 +1,7 @@
-version: "3.8"
-
 services:
   # ─── PostgreSQL Database ────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: lostandfound-db
     restart: unless-stopped
     environment:
@@ -15,7 +13,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lostandfound"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,12 +28,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/lostandfound?schema=public
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://postgres:postgres@postgres:5432/lostandfound?schema=public}
       PORT: "3000"
-      NODE_ENV: development
+      NODE_ENV: production
       JWT_SECRET: dev-jwt-secret-change-in-production
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: "*"
+      BASE_URL: http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy

@@ -5,7 +5,7 @@ export const registerSchema = z.object({
   uoftEmail: z
     .string()
     .email("Invalid email format")
-    .refine((email) => email.endsWith("utoronto.ca"), {
+    .refine((email) => email.endsWith("mail.utoronto.ca"), {
       message: "Must be a UofT email address",
     }),
   password: z.string().min(8, "Password must be at least 8 characters"),

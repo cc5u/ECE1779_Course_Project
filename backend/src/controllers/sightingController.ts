@@ -7,12 +7,13 @@ import { broadcastToReport } from "../utils/websocket";
 export async function create(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const input = createSightingSchema.parse(req.body);
-    const sighting = await sightingService.createSighting(req.params.reportId, req.user!.id, input);
+    const reportId = String(req.params.reportId);
+    const sighting = await sightingService.createSighting(reportId, req.user!.id, input);
 
     // Broadcast real-time update to subscribers
-    broadcastToReport(req.params.reportId, {
+    broadcastToReport(reportId, {
       type: "new_sighting",
-      reportId: req.params.reportId,
+      reportId,
       data: sighting,
     });
 
@@ -24,7 +25,8 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
 
 export async function listByReport(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const sightings = await sightingService.getSightingsByReport(req.params.reportId);
+    const reportId = String(req.params.reportId);
+    const sightings = await sightingService.getSightingsByReport(reportId);
     res.json({ success: true, data: sightings });
   } catch (err) {
     next(err);
@@ -33,7 +35,8 @@ export async function listByReport(req: AuthRequest, res: Response, next: NextFu
 
 export async function remove(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    await sightingService.deleteSighting(req.params.id, req.user!.id);
+    const sightingId = String(req.params.id);
+    await sightingService.deleteSighting(sightingId, req.user!.id);
     res.json({ success: true, message: "Sighting deleted" });
   } catch (err) {
     next(err);

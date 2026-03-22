@@ -16,7 +16,8 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
 
 export async function getById(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const report = await reportService.getReportById(req.params.id);
+    const reportId = String(req.params.id);
+    const report = await reportService.getReportById(reportId);
     res.json({ success: true, data: report });
   } catch (err) {
     next(err);
@@ -40,13 +41,14 @@ export async function list(req: AuthRequest, res: Response, next: NextFunction) 
 export async function update(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const input = updateReportSchema.parse(req.body);
-    const report = await reportService.updateReport(req.params.id, req.user!.id, input);
+    const reportId = String(req.params.id);
+    const report = await reportService.updateReport(reportId, req.user!.id, input);
 
     // Broadcast status change to subscribers
     if (input.status) {
-      broadcastToReport(req.params.id, {
+      broadcastToReport(reportId, {
         type: "status_change",
-        reportId: req.params.id,
+        reportId,
         newStatus: input.status,
         data: report,
       });
@@ -60,7 +62,8 @@ export async function update(req: AuthRequest, res: Response, next: NextFunction
 
 export async function remove(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    await reportService.deleteReport(req.params.id, req.user!.id);
+    const reportId = String(req.params.id);
+    await reportService.deleteReport(reportId, req.user!.id);
     res.json({ success: true, message: "Report deleted" });
   } catch (err) {
     next(err);

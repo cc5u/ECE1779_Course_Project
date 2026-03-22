@@ -1,14 +1,19 @@
 import { Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { AuthRequest } from "../types";
-import { AppError } from "./errorHandler";
 import prisma from "../prisma/client";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
-export function generateToken(payload: { id: string; email: string; displayName: string }): string {
+interface AuthTokenPayload {
+  id: string;
+  uoftEmail: string;
+  displayName: string;
+}
+
+export function generateToken(payload: AuthTokenPayload): string {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    expiresIn: (process.env.JWT_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"],
   });
 }
 
@@ -21,7 +26,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; displayName: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
 
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user) {
@@ -31,7 +36,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
 
     req.user = {
       id: decoded.id,
-      email: decoded.email,
+      uoftEmail: decoded.uoftEmail,
       displayName: decoded.displayName,
     };
 
@@ -46,10 +51,10 @@ export async function optionalAuth(req: AuthRequest, res: Response, next: NextFu
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
-      const decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; displayName: string };
+      const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
       req.user = {
         id: decoded.id,
-        email: decoded.email,
+        uoftEmail: decoded.uoftEmail,
         displayName: decoded.displayName,
       };
     }
