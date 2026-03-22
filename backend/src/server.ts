@@ -8,6 +8,7 @@ import path from "path";
 import prisma from "./prisma/client";
 import { errorHandler } from "./middleware/errorHandler";
 import { setupWebSocket } from "./utils/websocket";
+import { getImageStorageMode } from "./services/storageService";
 
 // Route imports
 import healthRoutes from "./routes/health";
@@ -74,6 +75,7 @@ async function start() {
     // Test database connection
     await prisma.$connect();
     console.log("Database connected successfully");
+    console.log(`Image storage mode: ${getImageStorageMode()}`);
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`\n🚀 Server running on http://localhost:${PORT}`);

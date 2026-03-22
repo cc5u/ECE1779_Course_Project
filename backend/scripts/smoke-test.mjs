@@ -3,8 +3,12 @@ import "dotenv/config";
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const KEEP_DATA = process.env.KEEP_DATA === "1";
 const SKIP_IMAGES = process.env.SKIP_IMAGES === "1";
+const EXPECT_SPACES = process.env.EXPECT_SPACES === "1";
 const HEALTH_TIMEOUT_MS = Number(process.env.HEALTH_TIMEOUT_MS || 30000);
 const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || "mail.utoronto.ca";
+const DO_SPACES_ENDPOINT = process.env.DO_SPACES_ENDPOINT || "";
+const DO_SPACES_BUCKET = process.env.DO_SPACES_BUCKET || "";
+const DO_SPACES_CDN_ENDPOINT = process.env.DO_SPACES_CDN_ENDPOINT || "";
 
 const tinyPngBase64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z7f8AAAAASUVORK5CYII=";
@@ -21,6 +25,24 @@ function buildUrl(path, query = {}) {
     }
   }
   return url.toString();
+}
+
+function normalizeHost(value) {
+  return value.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+}
+
+function getExpectedSpacesHosts() {
+  const hosts = new Set();
+
+  if (DO_SPACES_CDN_ENDPOINT) {
+    hosts.add(normalizeHost(DO_SPACES_CDN_ENDPOINT));
+  }
+
+  if (DO_SPACES_BUCKET && DO_SPACES_ENDPOINT) {
+    hosts.add(`${DO_SPACES_BUCKET}.${normalizeHost(DO_SPACES_ENDPOINT)}`);
+  }
+
+  return hosts;
 }
 
 async function requestJson(name, { method = "GET", path, token, query, body, formData }) {
@@ -87,6 +109,41 @@ async function waitForHealth() {
   throw new Error(`Backend did not become healthy within ${HEALTH_TIMEOUT_MS}ms at ${BASE_URL}`);
 }
 
+async function verifyPublicImageUrl(name, publicUrl) {
+  const response = await fetch(publicUrl, { method: "GET" });
+  if (!response.ok) {
+    throw new Error(`${name} publicUrl is not reachable: ${publicUrl} returned ${response.status}`);
+  }
+
+  console.log(`Verified public image URL: ${publicUrl}`);
+}
+
+async function assertImageUploadMode(name, publicUrl) {
+  const appOrigin = new URL(BASE_URL).origin;
+  const uploadedUrl = new URL(publicUrl);
+
+  if (EXPECT_SPACES) {
+    const expectedHosts = getExpectedSpacesHosts();
+    if (expectedHosts.size === 0) {
+      throw new Error(
+        "EXPECT_SPACES=1 requires DO_SPACES_BUCKET plus DO_SPACES_ENDPOINT or DO_SPACES_CDN_ENDPOINT in backend/.env"
+      );
+    }
+
+    if (publicUrl.startsWith(`${appOrigin}/uploads/`)) {
+      throw new Error(`${name} still uses local /uploads URL instead of Spaces: ${publicUrl}`);
+    }
+
+    if (!expectedHosts.has(uploadedUrl.host)) {
+      throw new Error(
+        `${name} publicUrl host ${uploadedUrl.host} does not match expected Spaces hosts: ${Array.from(expectedHosts).join(", ")}`
+      );
+    }
+  }
+
+  await verifyPublicImageUrl(name, publicUrl);
+}
+
 function makeImageFormData(filename) {
   const formData = new FormData();
   const imageBuffer = Buffer.from(tinyPngBase64, "base64");
@@ -117,10 +174,14 @@ async function main() {
     sightingId: null,
     reportImageId: null,
     sightingImageId: null,
+    reportImageUrl: null,
+    sightingImageUrl: null,
   };
 
   console.log(`Running smoke test against ${BASE_URL}`);
-  console.log(`KEEP_DATA=${KEEP_DATA ? "1" : "0"} SKIP_IMAGES=${SKIP_IMAGES ? "1" : "0"}`);
+  console.log(
+    `KEEP_DATA=${KEEP_DATA ? "1" : "0"} SKIP_IMAGES=${SKIP_IMAGES ? "1" : "0"} EXPECT_SPACES=${EXPECT_SPACES ? "1" : "0"}`
+  );
 
   await waitForHealth();
 
@@ -199,6 +260,11 @@ async function main() {
         formData: makeImageFormData("report-smoke.png"),
       });
       state.reportImageId = reportImageUpload.data[0]?.id || null;
+      state.reportImageUrl = reportImageUpload.data[0]?.publicUrl || null;
+
+      if (state.reportImageUrl) {
+        await assertImageUploadMode("report image", state.reportImageUrl);
+      }
     }
 
     await requestJson("list sightings", {
@@ -224,6 +290,11 @@ async function main() {
         formData: makeImageFormData("sighting-smoke.png"),
       });
       state.sightingImageId = sightingImageUpload.data[0]?.id || null;
+      state.sightingImageUrl = sightingImageUpload.data[0]?.publicUrl || null;
+
+      if (state.sightingImageUrl) {
+        await assertImageUploadMode("sighting image", state.sightingImageUrl);
+      }
     }
 
     await requestJson("send owner message", {
@@ -275,7 +346,10 @@ async function main() {
           sightingId: state.sightingId,
           reportImageId: state.reportImageId,
           sightingImageId: state.sightingImageId,
+          reportImageUrl: state.reportImageUrl,
+          sightingImageUrl: state.sightingImageUrl,
           keptData: KEEP_DATA,
+          expectedSpaces: EXPECT_SPACES,
         },
         null,
         2

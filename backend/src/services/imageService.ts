@@ -1,9 +1,6 @@
-import fs from "fs";
-import path from "path";
 import prisma from "../prisma/client";
 import { AppError } from "../middleware/errorHandler";
-
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+import { deleteStoredImage, storeImage } from "./storageService";
 
 /**
  * Save uploaded files as report images in the database
@@ -20,12 +17,9 @@ export async function addReportImages(
   });
 
   if (!report) {
-    // Clean up uploaded files since we're rejecting
-    cleanupFiles(files);
     throw new AppError("Report not found", 404);
   }
   if (report.ownerId !== userId) {
-    cleanupFiles(files);
     throw new AppError("You can only add images to your own reports", 403);
   }
 
@@ -37,22 +31,34 @@ export async function addReportImages(
   });
   let displayOrder = (lastImage?.displayOrder ?? -1) + 1;
 
-  // Create database records for each uploaded file
-  const images = await Promise.all(
-    files.map((file) => {
-      const record = prisma.reportImage.create({
-        data: {
-          reportId,
-          objectKey: file.filename,
-          publicUrl: `${BASE_URL}/uploads/${file.filename}`,
-          displayOrder: displayOrder++,
-        },
-      });
-      return record;
-    })
-  );
+  const uploadedAssets: Array<{ objectKey: string; publicUrl: string }> = [];
 
-  return images;
+  try {
+    for (const file of files) {
+      uploadedAssets.push(
+        await storeImage({
+          folder: `reports/${reportId}`,
+          file,
+        })
+      );
+    }
+
+    return await Promise.all(
+      uploadedAssets.map((asset) =>
+        prisma.reportImage.create({
+          data: {
+            reportId,
+            objectKey: asset.objectKey,
+            publicUrl: asset.publicUrl,
+            displayOrder: displayOrder++,
+          },
+        })
+      )
+    );
+  } catch (error) {
+    await cleanupUploadedAssets(uploadedAssets);
+    throw error;
+  }
 }
 
 /**
@@ -70,11 +76,9 @@ export async function addSightingImages(
   });
 
   if (!sighting) {
-    cleanupFiles(files);
     throw new AppError("Sighting not found", 404);
   }
   if (sighting.finderId !== userId) {
-    cleanupFiles(files);
     throw new AppError("You can only add images to your own sightings", 403);
   }
 
@@ -86,20 +90,34 @@ export async function addSightingImages(
   });
   let displayOrder = (lastImage?.displayOrder ?? -1) + 1;
 
-  const images = await Promise.all(
-    files.map((file) => {
-      return prisma.sightingImage.create({
-        data: {
-          sightingId,
-          objectKey: file.filename,
-          publicUrl: `${BASE_URL}/uploads/${file.filename}`,
-          displayOrder: displayOrder++,
-        },
-      });
-    })
-  );
+  const uploadedAssets: Array<{ objectKey: string; publicUrl: string }> = [];
 
-  return images;
+  try {
+    for (const file of files) {
+      uploadedAssets.push(
+        await storeImage({
+          folder: `sightings/${sightingId}`,
+          file,
+        })
+      );
+    }
+
+    return await Promise.all(
+      uploadedAssets.map((asset) =>
+        prisma.sightingImage.create({
+          data: {
+            sightingId,
+            objectKey: asset.objectKey,
+            publicUrl: asset.publicUrl,
+            displayOrder: displayOrder++,
+          },
+        })
+      )
+    );
+  } catch (error) {
+    await cleanupUploadedAssets(uploadedAssets);
+    throw error;
+  }
 }
 
 /**
@@ -120,8 +138,7 @@ export async function deleteReportImage(imageId: string, userId: string) {
     throw new AppError("You can only delete images from your own reports", 403);
   }
 
-  // Delete file from disk
-  deleteFileFromDisk(image.objectKey);
+  await deleteStoredImage(image.objectKey);
 
   // Delete database record
   await prisma.reportImage.delete({ where: { id: imageId } });
@@ -145,29 +162,20 @@ export async function deleteSightingImage(imageId: string, userId: string) {
     throw new AppError("You can only delete images from your own sightings", 403);
   }
 
-  deleteFileFromDisk(image.objectKey);
+  await deleteStoredImage(image.objectKey);
   await prisma.sightingImage.delete({ where: { id: imageId } });
 }
 
 // ─── Helpers ─────────────────────────────────────────
 
-function cleanupFiles(files: Express.Multer.File[]) {
-  for (const file of files) {
-    try {
-      fs.unlinkSync(file.path);
-    } catch {
-      // File may not exist, ignore
-    }
-  }
-}
-
-function deleteFileFromDisk(objectKey: string) {
-  const filePath = path.join(process.cwd(), "uploads", objectKey);
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch {
-    console.warn(`Failed to delete file: ${filePath}`);
-  }
+async function cleanupUploadedAssets(assets: Array<{ objectKey: string }>) {
+  await Promise.all(
+    assets.map(async (asset) => {
+      try {
+        await deleteStoredImage(asset.objectKey);
+      } catch {
+        // Best-effort cleanup only.
+      }
+    })
+  );
 }
