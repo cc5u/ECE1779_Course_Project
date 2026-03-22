@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Circle, MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { Upload, MapPin } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { createReport, formatApiError, uploadReportImage } from '../lib/api';
+
+type LocationSearchResult = {
+    lat: string;
+    lon: string;
+    display_name: string;
+};
 
 function LocationPicker({
     onSelect,
@@ -15,6 +21,18 @@ function LocationPicker({
             onSelect([event.latlng.lat, event.latlng.lng]);
         },
     });
+
+    return null;
+}
+
+function MapViewport({ center }: { center: [number, number] }) {
+    const map = useMap();
+
+    useEffect(() => {
+        map.flyTo(center, map.getZoom(), {
+            duration: 1,
+        });
+    }, [center, map]);
 
     return null;
 }
@@ -34,6 +52,9 @@ export default function ReportLostItem() {
     });
     const [errorMessage, setErrorMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+    const [locationMessage, setLocationMessage] = useState('');
+    const skipAddressLookupRef = useRef(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -46,10 +67,107 @@ export default function ReportLostItem() {
     //  It retrieves the selected file, updates the state with the file, and generates a preview URL for displaying the image.
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        if (e.target.id === 'searchLocation') {
+            skipAddressLookupRef.current = false;
+            setLocationMessage('');
+        }
+
         setFormData((current) => ({
             ...current,
             [e.target.id]: e.target.value,
         }));
+    };
+
+    useEffect(() => {
+        const query = formData.searchLocation.trim();
+
+        if (skipAddressLookupRef.current || query.length < 3) {
+            return;
+        }
+
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setIsResolvingLocation(true);
+            setLocationMessage('');
+
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
+                    {
+                        signal: controller.signal,
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error('Unable to find that address.');
+                }
+
+                const results = (await response.json()) as LocationSearchResult[];
+
+                if (!results.length) {
+                    setLocationMessage('No matching address found. Try a more specific search.');
+                    return;
+                }
+
+                const [match] = results;
+                setPinPosition([Number(match.lat), Number(match.lon)]);
+                setLocationMessage(`Map updated to ${match.display_name}`);
+            } catch (error) {
+                if (controller.signal.aborted) {
+                    return;
+                }
+
+                setLocationMessage('Address lookup failed. You can still click the map to choose a location.');
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsResolvingLocation(false);
+                }
+            }
+        }, 500);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timer);
+        };
+    }, [formData.searchLocation]);
+
+    const handleMapSelection = async (position: [number, number]) => {
+        setPinPosition(position);
+        setLocationMessage('');
+        setIsResolvingLocation(true);
+
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${position[0]}&lon=${position[1]}`,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Unable to resolve the selected point.');
+            }
+
+            const result = (await response.json()) as { display_name?: string };
+
+            if (result.display_name) {
+                skipAddressLookupRef.current = true;
+                setFormData((current) => ({
+                    ...current,
+                    searchLocation: result.display_name ?? current.searchLocation,
+                }));
+                setLocationMessage(`Address updated from map selection.`);
+            }
+        } catch {
+            setLocationMessage('Coordinates updated. Address could not be resolved automatically.');
+        } finally {
+            setIsResolvingLocation(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -185,6 +303,9 @@ export default function ReportLostItem() {
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
+                    <p className="mt-2 text-sm text-gray-500">
+                    {isResolvingLocation ? 'Updating map location...' : locationMessage || 'Type an address to move the map, or click the map to fill the address.'}
+                    </p>
                 </div>
 
                 {/* Lost Location Map */}
@@ -202,11 +323,12 @@ export default function ReportLostItem() {
                         scrollWheelZoom
                         className="h-full w-full cursor-crosshair"
                     >
+                        <MapViewport center={pinPosition} />
                         <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
-                        <LocationPicker onSelect={setPinPosition} />
+                        <LocationPicker onSelect={handleMapSelection} />
                         <Circle
                         center={pinPosition}
                         radius={radius}

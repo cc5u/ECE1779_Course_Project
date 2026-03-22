@@ -5,16 +5,36 @@ import { Link } from 'react-router';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { Navbar } from '../components/Navbar';
 import { ReportCard } from '../components/ReportCard';
-import { formatApiError, getMapReports, getReports, type LostReport, type MapReport } from '../lib/api';
+import { UploadFoundItemModal, type FoundItemSubmission } from '../components/UploadFoundItemModal';
+import {
+    createSighting,
+    formatApiError,
+    getMapReports,
+    getReports,
+    uploadSightingImage,
+    type LostReport,
+    type MapReport,
+} from '../lib/api';
 
 export function Home() {
     const [lostReports, setLostReports] = useState<LostReport[]>([]);
     const [mapPins, setMapPins] = useState<MapReport[]>([]);
     const [errorMessage, setErrorMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedReport, setSelectedReport] = useState<LostReport | null>(null);
+    const [isFoundModalOpen, setIsFoundModalOpen] = useState(false);
+    const [isSubmittingFoundReport, setIsSubmittingFoundReport] = useState(false);
+    const [foundReportError, setFoundReportError] = useState('');
 
     useEffect(() => {
         async function loadHomeData() {
+            await refreshHomeData();
+        }
+
+        void loadHomeData();
+    }, []);
+
+    async function refreshHomeData() {
             setIsLoading(true);
             setErrorMessage('');
 
@@ -31,10 +51,44 @@ export function Home() {
             } finally {
                 setIsLoading(false);
             }
+    }
+
+    const openFoundModal = (report: LostReport) => {
+        setSelectedReport(report);
+        setFoundReportError('');
+        setIsFoundModalOpen(true);
+    };
+
+    const closeFoundModal = () => {
+        if (isSubmittingFoundReport) {
+            return;
         }
 
-        void loadHomeData();
-    }, []);
+        setIsFoundModalOpen(false);
+        setSelectedReport(null);
+        setFoundReportError('');
+    };
+
+    const handleFoundSubmit = async ({ address, description, file }: FoundItemSubmission) => {
+        if (!selectedReport) {
+            return;
+        }
+
+        setIsSubmittingFoundReport(true);
+        setFoundReportError('');
+
+        try {
+            const note = [`Found at: ${address}`, `Description: ${description}`].join('\n');
+            const sighting = await createSighting(selectedReport.id, { note });
+            await uploadSightingImage(sighting.id, file);
+            await refreshHomeData();
+            closeFoundModal();
+        } catch (error) {
+            setFoundReportError(formatApiError(error));
+        } finally {
+            setIsSubmittingFoundReport(false);
+        }
+    };
 
     const createMarkerIcon = (color: string) =>
         new DivIcon({
@@ -90,6 +144,18 @@ export function Home() {
                                 <p className="font-medium text-gray-900">{pin.itemName}</p>
                                 <p className="text-sm text-gray-600">{pin.lostLocationText || 'Location unavailable'}</p>
                                 <p className="text-xs text-gray-500">Reported by {pin.owner.displayName}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const matchingReport = lostReports.find((report) => report.id === pin.id);
+                                        if (matchingReport) {
+                                            openFoundModal(matchingReport);
+                                        }
+                                    }}
+                                    className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                                >
+                                    Report Found
+                                </button>
                             </div>
                         </Popup>
                     </Marker>
@@ -137,6 +203,7 @@ export function Home() {
                                         time={formatRelativeTime(report.createdAt)}
                                         status={report.status === 'possibly_found' ? 'Possibly Found' : 'Lost'}
                                         imageUrl={report.images?.[0]?.publicUrl || ''}
+                                        onClick={() => openFoundModal(report)}
                                     />
                                 </div>
                             ))
@@ -149,6 +216,14 @@ export function Home() {
             </div>
             </div>
         </main>
+        <UploadFoundItemModal
+            isOpen={isFoundModalOpen}
+            itemName={selectedReport?.itemName || 'Lost item'}
+            isSubmitting={isSubmittingFoundReport}
+            errorMessage={foundReportError}
+            onClose={closeFoundModal}
+            onSubmit={handleFoundSubmit}
+        />
         </div>
     );
 }

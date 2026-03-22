@@ -57,6 +57,12 @@ export interface LostReport {
   };
 }
 
+export interface Sighting {
+  id: string;
+  note: string | null;
+  createdAt: string;
+}
+
 export interface MapReport {
   id: string;
   itemName: string;
@@ -81,6 +87,10 @@ export interface CreateReportPayload {
   latitude: number;
   longitude: number;
   radiusMeters?: number;
+}
+
+export interface CreateSightingPayload {
+  note?: string;
 }
 
 export interface AuthResponseData {
@@ -187,6 +197,27 @@ export async function uploadReportImage(reportId: string, file: File) {
   formData.append("images", file);
 
   const response = await request<ReportImage[]>(`/reports/${reportId}/images`, {
+    method: "POST",
+    body: formData,
+  }, true);
+
+  return response.data;
+}
+
+export async function createSighting(reportId: string, payload: CreateSightingPayload) {
+  const response = await request<Sighting>(`/reports/${reportId}/sightings`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, true);
+
+  return response.data;
+}
+
+export async function uploadSightingImage(sightingId: string, file: File) {
+  const formData = new FormData();
+  formData.append("images", file);
+
+  const response = await request<ReportImage[]>(`/sightings/${sightingId}/images`, {
     method: "POST",
     body: formData,
   }, true);
