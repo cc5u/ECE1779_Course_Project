@@ -1,19 +1,19 @@
 services:
   # ─── PostgreSQL Database ────────────────────────────
   postgres:
-    image: postgres:17-alpine
-    container_name: lostandfound-db
+    image: postgres:17
+    container_name: findit-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: lostandfound
+      POSTGRES_DB: findit
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d lostandfound"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d findit"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,12 +23,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: lostandfound-backend
+    container_name: findit-backend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://postgres:postgres@postgres:5432/lostandfound?schema=public}
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://postgres:postgres@postgres:5432/findit?schema=public}
       PORT: "3000"
       NODE_ENV: production
       JWT_SECRET: dev-jwt-secret-change-in-production
