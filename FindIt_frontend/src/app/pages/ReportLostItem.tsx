@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import { Upload, MapPin } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
+import { createReport, formatApiError, uploadReportImage } from '../lib/api';
 
 function LocationPicker({
     onSelect,
@@ -19,18 +20,71 @@ function LocationPicker({
 }
 
 export default function ReportLostItem() {
+    const navigate = useNavigate();
     const [radius, setRadius] = useState(200);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [pinPosition, setPinPosition] = useState<[number, number]>([43.6532, -79.3832]);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [formData, setFormData] = useState({
+        itemName: '',
+        description: '',
+        lostDate: '',
+        lostTime: '',
+        searchLocation: '',
+    });
+    const [errorMessage, setErrorMessage] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+        setSelectedFile(file);
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
         }
     }; // This function handles the file input change event.
     //  It retrieves the selected file, updates the state with the file, and generates a preview URL for displaying the image.
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData((current) => ({
+            ...current,
+            [e.target.id]: e.target.value,
+        }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setErrorMessage('');
+
+        if (!formData.lostDate || !formData.lostTime) {
+            setErrorMessage('Lost date and time are required.');
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const report = await createReport({
+                itemName: formData.itemName,
+                description: formData.description,
+                lostTime: new Date(`${formData.lostDate}T${formData.lostTime}`).toISOString(),
+                lostLocationText: formData.searchLocation,
+                latitude: pinPosition[0],
+                longitude: pinPosition[1],
+                radiusMeters: radius,
+            });
+
+            if (selectedFile) {
+                await uploadReportImage(report.id, selectedFile);
+            }
+
+            navigate('/home');
+        } catch (error) {
+            setErrorMessage(formatApiError(error));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -50,7 +104,12 @@ export default function ReportLostItem() {
                 </div>
 
                 {/* Form */}
-                <form className="space-y-6">
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                {errorMessage ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {errorMessage}
+                    </div>
+                ) : null}
                 {/* Item Name */}
                 <div>
                     <label htmlFor="itemName" className="block text-sm font-medium text-gray-900 mb-2">
@@ -60,6 +119,8 @@ export default function ReportLostItem() {
                     type="text"
                     id="itemName"
                     placeholder="e.g., Black leather wallet"
+                    value={formData.itemName}
+                    onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     required
                     />
@@ -74,6 +135,8 @@ export default function ReportLostItem() {
                     id="description"
                     rows={4}
                     placeholder="Provide additional details such as brand, color, or identifying features"
+                    value={formData.description}
+                    onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                     required
                     />
@@ -88,6 +151,8 @@ export default function ReportLostItem() {
                     <input
                         type="date"
                         id="lostDate"
+                        value={formData.lostDate}
+                        onChange={handleChange}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                         required
                     />
@@ -99,6 +164,8 @@ export default function ReportLostItem() {
                     <input
                         type="time"
                         id="lostTime"
+                        value={formData.lostTime}
+                        onChange={handleChange}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                         required
                     />
@@ -114,6 +181,8 @@ export default function ReportLostItem() {
                     type="text"
                     id="searchLocation"
                     placeholder="Enter address or place"
+                    value={formData.searchLocation}
+                    onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                 </div>
@@ -223,9 +292,10 @@ export default function ReportLostItem() {
                     </Link>
                     <button
                     type="submit"
+                    disabled={isSubmitting}
                     className="px-8 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
                     >
-                    Submit Report
+                    {isSubmitting ? 'Submitting...' : 'Submit Report'}
                     </button>
                 </div>
                 </form>

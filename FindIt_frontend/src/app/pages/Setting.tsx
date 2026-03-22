@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { User, Lock, Bell, Trash2, Save } from 'lucide-react';
+import { getProfile } from '../lib/api';
+import { getStoredSession } from '../lib/auth';
 
 export default function Settings() {
     const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'notifications' | 'account'>('profile');
@@ -30,6 +32,30 @@ export default function Settings() {
     });
     
     const [saveMessage, setSaveMessage] = useState('');
+    const session = getStoredSession();
+
+    useEffect(() => {
+        async function loadProfile() {
+            if (!session?.token) {
+                return;
+            }
+
+            try {
+                const user = await getProfile();
+                const nameParts = user.displayName.split(' ');
+                setProfile((current) => ({
+                    ...current,
+                    firstName: nameParts[0] || '',
+                    lastName: nameParts.slice(1).join(' '),
+                    email: user.uoftEmail,
+                }));
+            } catch {
+                // Keep the existing placeholder state if the profile request fails.
+            }
+        }
+
+        void loadProfile();
+    }, [session?.token]);
 
     const handleProfileSave = () => {
         setSaveMessage('Profile updated successfully!');

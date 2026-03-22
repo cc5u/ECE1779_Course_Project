@@ -1,41 +1,40 @@
+import { useEffect, useState } from 'react';
 import { DivIcon } from 'leaflet';
 import { Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { Navbar } from '../components/Navbar';
 import { ReportCard } from '../components/ReportCard';
+import { formatApiError, getMapReports, getReports, type LostReport, type MapReport } from '../lib/api';
 
 export function Home() {
-    const lostReports =[
-        {
-        itemName: 'Lost Black Wallet',
-        location: 'Downtown Toronto',
-        time: '2 hours ago',
-        status: 'Lost' as const,
-        imageUrl: 'https://images.unsplash.com/photo-1703355685552-885762b8c9b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibGFjayUyMGxlYXRoZXIlMjB3YWxsZXR8ZW58MXx8fHwxNzcyMzkyODk0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        },        
-    ]; // This will eventually be fetched from the backend
+    const [lostReports, setLostReports] = useState<LostReport[]>([]);
+    const [mapPins, setMapPins] = useState<MapReport[]>([]);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
 
-    const mapPins = [
-        {
-            id: 1,
-            position: [43.6532, -79.3832] as [number, number],
-            label: 'Union Station',
-            color: '#ef4444',
-        },
-        {
-            id: 2,
-            position: [43.6465, -79.3892] as [number, number],
-            label: 'CN Tower',
-            color: '#22c55e',
-        },
-        {
-            id: 3,
-            position: [43.6677, -79.3948] as [number, number],
-            label: 'Royal Ontario Museum',
-            color: '#3b82f6',
-        },
-    ]; // This will eventually be fetched from the backend
+    useEffect(() => {
+        async function loadHomeData() {
+            setIsLoading(true);
+            setErrorMessage('');
+
+            try {
+                const [{ reports }, mapReports] = await Promise.all([
+                    getReports(),
+                    getMapReports(),
+                ]);
+
+                setLostReports(reports);
+                setMapPins(mapReports);
+            } catch (error) {
+                setErrorMessage(formatApiError(error));
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        void loadHomeData();
+    }, []);
 
     const createMarkerIcon = (color: string) =>
         new DivIcon({
@@ -81,8 +80,18 @@ export function Home() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     {mapPins.map((pin) => (
-                    <Marker key={pin.id} position={pin.position} icon={createMarkerIcon(pin.color)}>
-                        <Popup>{pin.label}</Popup>
+                    <Marker
+                        key={pin.id}
+                        position={[pin.latitude, pin.longitude]}
+                        icon={createMarkerIcon(pin.status === 'possibly_found' ? '#22c55e' : '#ef4444')}
+                    >
+                        <Popup>
+                            <div className="space-y-1">
+                                <p className="font-medium text-gray-900">{pin.itemName}</p>
+                                <p className="text-sm text-gray-600">{pin.lostLocationText || 'Location unavailable'}</p>
+                                <p className="text-xs text-gray-500">Reported by {pin.owner.displayName}</p>
+                            </div>
+                        </Popup>
                     </Marker>
                     ))}
                 </MapContainer>
@@ -106,24 +115,65 @@ export function Home() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
                     Recent Lost Reports
                 </h2>
-                
-                <div className="space-y-4">
-                    {lostReports.map((report, index) => (
-                    <Link to={`/report/${index + 1}`} key={index}>
-                        <ReportCard
-                        itemName={report.itemName}
-                        location={report.location}
-                        time={report.time}
-                        status={report.status}
-                        imageUrl={report.imageUrl}
-                        />
-                    </Link>
-                    ))}
-                </div>
+
+                {errorMessage ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {errorMessage}
+                    </div>
+                ) : null}
+
+                {isLoading ? (
+                    <p className="text-sm text-gray-500">Loading reports...</p>
+                ) : null}
+
+                {!isLoading && !errorMessage ? (
+                    <div className="space-y-4">
+                        {lostReports.length ? (
+                            lostReports.map((report) => (
+                                <div key={report.id}>
+                                    <ReportCard
+                                        itemName={report.itemName}
+                                        location={report.lostLocationText || 'Location unavailable'}
+                                        time={formatRelativeTime(report.createdAt)}
+                                        status={report.status === 'possibly_found' ? 'Possibly Found' : 'Lost'}
+                                        imageUrl={report.images?.[0]?.publicUrl || ''}
+                                    />
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-gray-500">No reports found yet.</p>
+                        )}
+                    </div>
+                ) : null}
                 </div>
             </div>
             </div>
         </main>
         </div>
     );
-    }   
+}
+
+function formatRelativeTime(timestamp: string) {
+    const value = new Date(timestamp).getTime();
+    const diffMs = Date.now() - value;
+
+    if (Number.isNaN(value) || diffMs < 0) {
+        return 'Just now';
+    }
+
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) {
+        return 'Just now';
+    }
+    if (minutes < 60) {
+        return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+}
