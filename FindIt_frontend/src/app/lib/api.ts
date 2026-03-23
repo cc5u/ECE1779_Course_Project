@@ -18,6 +18,9 @@ interface ApiEnvelope<T> {
   };
 }
 
+type RawLostReport = Omit<LostReport, "images"> & { images?: RawImage[] | null };
+type RawMapReport = Omit<MapReport, "images"> & { images?: RawImage[] | null };
+
 export interface LoginPayload {
   uoftEmail: string;
   password: string;
@@ -74,10 +77,19 @@ export interface MapReport {
   owner: {
     displayName: string;
   };
-  images: Array<{
-    publicUrl: string;
-  }>;
+  images: ReportImage[];
 }
+
+type RawImage = {
+  id?: string;
+  publicUrl?: string | null;
+  imageUrl?: string | null;
+  image_url?: string | null;
+  url?: string | null;
+  key?: string | null;
+  objectKey?: string | null;
+  displayOrder?: number;
+};
 
 export interface CreateReportPayload {
   itemName: string;
@@ -148,6 +160,33 @@ async function request<T>(path: string, init: RequestInit = {}, auth = false): P
   return payload;
 }
 
+function normalizeImage(image: RawImage): ReportImage {
+  return {
+    id: image.id ?? image.key ?? image.objectKey ?? crypto.randomUUID(),
+    publicUrl:
+      image.publicUrl ??
+      image.imageUrl ??
+      image.image_url ??
+      image.url ??
+      "",
+    displayOrder: image.displayOrder,
+  };
+}
+
+function normalizeLostReport(report: RawLostReport): LostReport {
+  return {
+    ...report,
+    images: report.images?.map(normalizeImage) ?? [],
+  };
+}
+
+function normalizeMapReport(report: RawMapReport): MapReport {
+  return {
+    ...report,
+    images: report.images?.map(normalizeImage) ?? [],
+  };
+}
+
 export async function login(payload: LoginPayload): Promise<AuthSession> {
   const response = await request<AuthResponseData>("/auth/login", {
     method: "POST",
@@ -172,16 +211,16 @@ export async function getProfile() {
 }
 
 export async function getReports() {
-  const response = await request<LostReport[]>("/reports");
+  const response = await request<RawLostReport[]>("/reports");
   return {
-    reports: response.data,
+    reports: response.data.map(normalizeLostReport),
     pagination: response.pagination,
   };
 }
 
 export async function getMapReports() {
-  const response = await request<MapReport[]>("/reports/map");
-  return response.data;
+  const response = await request<RawMapReport[]>("/reports/map");
+  return response.data.map(normalizeMapReport);
 }
 
 export async function createReport(payload: CreateReportPayload) {
@@ -192,16 +231,22 @@ export async function createReport(payload: CreateReportPayload) {
   return response.data;
 }
 
-export async function uploadReportImage(reportId: string, file: File) {
+export async function uploadReportImages(reportId: string, files: File[]) {
   const formData = new FormData();
-  formData.append("images", file);
+  files.forEach((file) => {
+    formData.append("images", file);
+  });
 
-  const response = await request<ReportImage[]>(`/reports/${reportId}/images`, {
+  const response = await request<RawImage[]>(`/reports/${reportId}/images`, {
     method: "POST",
     body: formData,
   }, true);
 
-  return response.data;
+  return response.data.map(normalizeImage);
+}
+
+export async function uploadReportImage(reportId: string, file: File) {
+  return uploadReportImages(reportId, [file]);
 }
 
 export async function createSighting(reportId: string, payload: CreateSightingPayload) {
@@ -213,16 +258,22 @@ export async function createSighting(reportId: string, payload: CreateSightingPa
   return response.data;
 }
 
-export async function uploadSightingImage(sightingId: string, file: File) {
+export async function uploadSightingImages(sightingId: string, files: File[]) {
   const formData = new FormData();
-  formData.append("images", file);
+  files.forEach((file) => {
+    formData.append("images", file);
+  });
 
-  const response = await request<ReportImage[]>(`/sightings/${sightingId}/images`, {
+  const response = await request<RawImage[]>(`/sightings/${sightingId}/images`, {
     method: "POST",
     body: formData,
   }, true);
 
-  return response.data;
+  return response.data.map(normalizeImage);
+}
+
+export async function uploadSightingImage(sightingId: string, file: File) {
+  return uploadSightingImages(sightingId, [file]);
 }
 
 export function formatApiError(error: unknown) {

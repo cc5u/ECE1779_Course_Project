@@ -11,7 +11,7 @@ import {
     formatApiError,
     getMapReports,
     getReports,
-    uploadSightingImage,
+    uploadSightingImages,
     type LostReport,
     type MapReport,
 } from '../lib/api';
@@ -69,7 +69,7 @@ export function Home() {
         setFoundReportError('');
     };
 
-    const handleFoundSubmit = async ({ address, description, file }: FoundItemSubmission) => {
+    const handleFoundSubmit = async ({ address, description, files }: FoundItemSubmission) => {
         if (!selectedReport) {
             return;
         }
@@ -80,7 +80,7 @@ export function Home() {
         try {
             const note = [`Found at: ${address}`, `Description: ${description}`].join('\n');
             const sighting = await createSighting(selectedReport.id, { note });
-            await uploadSightingImage(sighting.id, file);
+            await uploadSightingImages(sighting.id, files);
             await refreshHomeData();
             closeFoundModal();
         } catch (error) {

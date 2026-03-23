@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { Upload, MapPin } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
-import { createReport, formatApiError, uploadReportImage } from '../lib/api';
+import { createReport, formatApiError, uploadReportImages } from '../lib/api';
 
 type LocationSearchResult = {
     lat: string;
@@ -40,9 +40,9 @@ function MapViewport({ center }: { center: [number, number] }) {
 export default function ReportLostItem() {
     const navigate = useNavigate();
     const [radius, setRadius] = useState(200);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [pinPosition, setPinPosition] = useState<[number, number]>([43.6532, -79.3832]);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [formData, setFormData] = useState({
         itemName: '',
         description: '',
@@ -57,14 +57,28 @@ export default function ReportLostItem() {
     const skipAddressLookupRef = useRef(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-        setSelectedFile(file);
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
+        const files = Array.from(e.target.files ?? []);
+
+        if (previewUrls.length) {
+            previewUrls.forEach((url) => URL.revokeObjectURL(url));
         }
+
+        if (files.length) {
+            setSelectedFiles(files);
+            setPreviewUrls(files.map((file) => URL.createObjectURL(file)));
+            return;
+        }
+
+        setSelectedFiles([]);
+        setPreviewUrls([]);
     }; // This function handles the file input change event.
-    //  It retrieves the selected file, updates the state with the file, and generates a preview URL for displaying the image.
+    //  It retrieves the selected files, updates the state, and generates preview URLs for displaying them.
+
+    useEffect(() => {
+        return () => {
+            previewUrls.forEach((url) => URL.revokeObjectURL(url));
+        };
+    }, [previewUrls]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         if (e.target.id === 'searchLocation') {
@@ -192,8 +206,8 @@ export default function ReportLostItem() {
                 radiusMeters: radius,
             });
 
-            if (selectedFile) {
-                await uploadReportImage(report.id, selectedFile);
+            if (selectedFiles.length) {
+                await uploadReportImages(report.id, selectedFiles);
             }
 
             navigate('/home');
@@ -380,24 +394,30 @@ export default function ReportLostItem() {
                         type="file"
                         id="imageUpload"
                         accept="image/*"
+                        multiple
                         onChange={handleFileChange}
                         className="hidden"
                     />
                     <label htmlFor="imageUpload" className="cursor-pointer">
-                        {previewUrl ? (
+                        {previewUrls.length ? (
                         <div className="space-y-2">
-                            <img 
-                            src={previewUrl} 
-                            alt="Preview" 
-                            className="max-h-48 mx-auto rounded-lg"
-                            />
-                            <p className="text-sm text-gray-600">Click to change image</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                {previewUrls.map((previewUrl, index) => (
+                                    <img
+                                        key={previewUrl}
+                                        src={previewUrl}
+                                        alt={`Preview ${index + 1}`}
+                                        className="h-32 w-full rounded-lg object-cover"
+                                    />
+                                ))}
+                            </div>
+                            <p className="text-sm text-gray-600">Click to change images</p>
                         </div>
                         ) : (
                         <div className="space-y-2">
                             <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                            <p className="text-gray-600">Upload a photo of the item</p>
-                            <p className="text-sm text-gray-500">Click to browse or drag and drop</p>
+                            <p className="text-gray-600">Upload photos of the item</p>
+                            <p className="text-sm text-gray-500">Click to browse one or more images</p>
                         </div>
                         )}
                     </label>

@@ -4,7 +4,7 @@ import { Upload, X } from 'lucide-react';
 export interface FoundItemSubmission {
   address: string;
   description: string;
-  file: File;
+  files: File[];
 }
 
 interface UploadFoundItemModalProps {
@@ -26,30 +26,26 @@ export function UploadFoundItemModal({
 }: UploadFoundItemModalProps) {
   const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   useEffect(() => {
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [previewUrl]);
+  }, [previewUrls]);
 
   if (!isOpen) {
     return null;
   }
 
   const resetForm = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
 
     setAddress('');
     setDescription('');
-    setSelectedFile(null);
-    setPreviewUrl(null);
+    setSelectedFiles([]);
+    setPreviewUrls([]);
   };
 
   const handleClose = () => {
@@ -62,31 +58,25 @@ export function UploadFoundItemModal({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
 
-    if (!file) {
-      return;
-    }
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
 
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-
-    setSelectedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    setSelectedFiles(files);
+    setPreviewUrls(files.map((file) => URL.createObjectURL(file)));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!selectedFile) {
+    if (!selectedFiles.length) {
       return;
     }
 
     await onSubmit({
       address: address.trim(),
       description: description.trim(),
-      file: selectedFile,
+      files: selectedFiles,
     });
 
     resetForm();
@@ -156,25 +146,31 @@ export function UploadFoundItemModal({
                 type="file"
                 id="foundImageUpload"
                 accept="image/*"
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
                 required
               />
               <label htmlFor="foundImageUpload" className="cursor-pointer">
-                {previewUrl ? (
+                {previewUrls.length ? (
                   <div className="space-y-2">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="mx-auto max-h-48 rounded-lg"
-                    />
-                    <p className="text-sm text-gray-600">Click to change image</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {previewUrls.map((previewUrl, index) => (
+                        <img
+                          key={previewUrl}
+                          src={previewUrl}
+                          alt={`Preview ${index + 1}`}
+                          className="h-32 w-full rounded-lg object-cover"
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-gray-600">Click to change images</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <Upload className="mx-auto h-10 w-10 text-gray-400" />
                     <p className="text-gray-600">Upload evidence of the found item</p>
-                    <p className="text-sm text-gray-500">Click to browse</p>
+                    <p className="text-sm text-gray-500">Click to browse one or more images</p>
                   </div>
                 )}
               </label>
