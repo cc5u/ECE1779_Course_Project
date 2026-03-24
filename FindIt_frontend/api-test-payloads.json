@@ -1,0 +1,505 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "notes": [
+    "Replace every {{placeholder}} before sending requests.",
+    "JWT-protected endpoints expect Authorization: Bearer {{token}}.",
+    "Image upload endpoints use multipart/form-data, not application/json.",
+    "Query examples below use the names currently implemented in reportService.ts: search, latitude, longitude, radius, sortBy, order.",
+    "If you hit /api/auth/register with GET, the server correctly returns Route not found because that endpoint is POST-only.",
+    "The current registration schema in this repo accepts addresses ending with mail.utoronto.ca."
+  ],
+  "variables": {
+    "ownerEmail": "owner@mail.utoronto.ca",
+    "ownerPassword": "OwnerPass123!",
+    "ownerDisplayName": "Alice Owner",
+    "finderEmail": "finder@mail.utoronto.ca",
+    "finderPassword": "FinderPass123!",
+    "finderDisplayName": "Bob Finder",
+    "ownerToken": "{{save from auth register/login response: data.token}}",
+    "finderToken": "{{save from auth register/login response: data.token}}",
+    "ownerUserId": "{{save from auth register/login response: data.user.id}}",
+    "finderUserId": "{{save from auth register/login response: data.user.id}}",
+    "reportId": "{{save from create report response: data.id}}",
+    "sightingId": "{{save from create sighting response: data.id}}",
+    "reportImageId": "{{save from upload report images response: data[0].id}}",
+    "sightingImageId": "{{save from upload sighting images response: data[0].id}}"
+  },
+  "httpRequests": [
+    {
+      "id": "health-check",
+      "name": "Health check",
+      "method": "GET",
+      "path": "/api/health",
+      "auth": "none",
+      "contentType": null,
+      "headers": {},
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/health'"
+    },
+    {
+      "id": "auth-register-owner",
+      "name": "Register owner account",
+      "method": "POST",
+      "path": "/api/auth/register",
+      "auth": "none",
+      "contentType": "application/json",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "body": {
+        "uoftEmail": "{{ownerEmail}}",
+        "password": "{{ownerPassword}}",
+        "displayName": "{{ownerDisplayName}}"
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/auth/register' -H 'Content-Type: application/json' --data '{\"uoftEmail\":\"{{ownerEmail}}\",\"password\":\"{{ownerPassword}}\",\"displayName\":\"{{ownerDisplayName}}\"}'",
+      "saveFromResponse": {
+        "ownerToken": "data.token",
+        "ownerUserId": "data.user.id"
+      }
+    },
+    {
+      "id": "auth-register-finder",
+      "name": "Register finder account",
+      "method": "POST",
+      "path": "/api/auth/register",
+      "auth": "none",
+      "contentType": "application/json",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "body": {
+        "uoftEmail": "{{finderEmail}}",
+        "password": "{{finderPassword}}",
+        "displayName": "{{finderDisplayName}}"
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/auth/register' -H 'Content-Type: application/json' --data '{\"uoftEmail\":\"{{finderEmail}}\",\"password\":\"{{finderPassword}}\",\"displayName\":\"{{finderDisplayName}}\"}'",
+      "saveFromResponse": {
+        "finderToken": "data.token",
+        "finderUserId": "data.user.id"
+      }
+    },
+    {
+      "id": "auth-login-owner",
+      "name": "Login owner account",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "auth": "none",
+      "contentType": "application/json",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "body": {
+        "uoftEmail": "{{ownerEmail}}",
+        "password": "{{ownerPassword}}"
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/auth/login' -H 'Content-Type: application/json' --data '{\"uoftEmail\":\"{{ownerEmail}}\",\"password\":\"{{ownerPassword}}\"}'",
+      "saveFromResponse": {
+        "ownerToken": "data.token",
+        "ownerUserId": "data.user.id"
+      }
+    },
+    {
+      "id": "auth-login-finder",
+      "name": "Login finder account",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "auth": "none",
+      "contentType": "application/json",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "body": {
+        "uoftEmail": "{{finderEmail}}",
+        "password": "{{finderPassword}}"
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/auth/login' -H 'Content-Type: application/json' --data '{\"uoftEmail\":\"{{finderEmail}}\",\"password\":\"{{finderPassword}}\"}'",
+      "saveFromResponse": {
+        "finderToken": "data.token",
+        "finderUserId": "data.user.id"
+      }
+    },
+    {
+      "id": "auth-profile-owner",
+      "name": "Get owner profile",
+      "method": "GET",
+      "path": "/api/auth/profile",
+      "auth": "ownerToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/auth/profile' -H 'Authorization: Bearer {{ownerToken}}'"
+    },
+    {
+      "id": "reports-list",
+      "name": "List reports with filters",
+      "method": "GET",
+      "path": "/api/reports",
+      "auth": "optional",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {
+        "page": "1",
+        "limit": "20",
+        "status": "lost",
+        "search": "wallet",
+        "latitude": "43.6629",
+        "longitude": "-79.3957",
+        "radius": "500",
+        "sortBy": "createdAt",
+        "order": "desc"
+      },
+      "body": null,
+      "curl": "curl -G 'http://localhost:3000/api/reports' -H 'Authorization: Bearer {{ownerToken}}' --data-urlencode 'page=1' --data-urlencode 'limit=20' --data-urlencode 'status=lost' --data-urlencode 'search=wallet' --data-urlencode 'latitude=43.6629' --data-urlencode 'longitude=-79.3957' --data-urlencode 'radius=500' --data-urlencode 'sortBy=createdAt' --data-urlencode 'order=desc'"
+    },
+    {
+      "id": "reports-create",
+      "name": "Create lost report",
+      "method": "POST",
+      "path": "/api/reports",
+      "auth": "ownerToken",
+      "contentType": "application/json",
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}",
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "body": {
+        "itemName": "Black wallet",
+        "description": "Black leather wallet with a TCard and a blue PRESTO card inside.",
+        "lostTime": "2026-03-20T15:30:00.000Z",
+        "lostLocationText": "Bahen Centre, first floor near the main entrance",
+        "latitude": 43.6596,
+        "longitude": -79.3977,
+        "radiusMeters": 120
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/reports' -H 'Authorization: Bearer {{ownerToken}}' -H 'Content-Type: application/json' --data '{\"itemName\":\"Black wallet\",\"description\":\"Black leather wallet with a TCard and a blue PRESTO card inside.\",\"lostTime\":\"2026-03-20T15:30:00.000Z\",\"lostLocationText\":\"Bahen Centre, first floor near the main entrance\",\"latitude\":43.6596,\"longitude\":-79.3977,\"radiusMeters\":120}'",
+      "saveFromResponse": {
+        "reportId": "data.id"
+      }
+    },
+    {
+      "id": "reports-map",
+      "name": "Get map report pins",
+      "method": "GET",
+      "path": "/api/reports/map",
+      "auth": "none",
+      "contentType": null,
+      "headers": {},
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/reports/map'"
+    },
+    {
+      "id": "reports-mine",
+      "name": "Get current user's reports",
+      "method": "GET",
+      "path": "/api/reports/mine",
+      "auth": "ownerToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/reports/mine' -H 'Authorization: Bearer {{ownerToken}}'"
+    },
+    {
+      "id": "reports-get-by-id",
+      "name": "Get one report with images, sightings, and counts",
+      "method": "GET",
+      "path": "/api/reports/{{reportId}}",
+      "auth": "optional",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/reports/{{reportId}}' -H 'Authorization: Bearer {{ownerToken}}'"
+    },
+    {
+      "id": "reports-update",
+      "name": "Update report",
+      "method": "PUT",
+      "path": "/api/reports/{{reportId}}",
+      "auth": "ownerToken",
+      "contentType": "application/json",
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}",
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "bodyExamples": {
+        "edit_fields": {
+          "description": "Black leather wallet with cards inside. Reward available.",
+          "lostLocationText": "Bahen Centre, first floor near Tim Hortons",
+          "radiusMeters": 150
+        },
+        "mark_possibly_found": {
+          "status": "possibly_found"
+        },
+        "mark_found": {
+          "status": "found"
+        },
+        "archive": {
+          "status": "archived"
+        }
+      },
+      "curlExamples": {
+        "edit_fields": "curl -X PUT 'http://localhost:3000/api/reports/{{reportId}}' -H 'Authorization: Bearer {{ownerToken}}' -H 'Content-Type: application/json' --data '{\"description\":\"Black leather wallet with cards inside. Reward available.\",\"lostLocationText\":\"Bahen Centre, first floor near Tim Hortons\",\"radiusMeters\":150}'",
+        "mark_possibly_found": "curl -X PUT 'http://localhost:3000/api/reports/{{reportId}}' -H 'Authorization: Bearer {{ownerToken}}' -H 'Content-Type: application/json' --data '{\"status\":\"possibly_found\"}'",
+        "mark_found": "curl -X PUT 'http://localhost:3000/api/reports/{{reportId}}' -H 'Authorization: Bearer {{ownerToken}}' -H 'Content-Type: application/json' --data '{\"status\":\"found\"}'",
+        "archive": "curl -X PUT 'http://localhost:3000/api/reports/{{reportId}}' -H 'Authorization: Bearer {{ownerToken}}' -H 'Content-Type: application/json' --data '{\"status\":\"archived\"}'"
+      }
+    },
+    {
+      "id": "reports-delete",
+      "name": "Delete report",
+      "method": "DELETE",
+      "path": "/api/reports/{{reportId}}",
+      "auth": "ownerToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X DELETE 'http://localhost:3000/api/reports/{{reportId}}' -H 'Authorization: Bearer {{ownerToken}}'",
+      "notes": [
+        "Run this last because it cascades to associated sightings, messages, and images."
+      ]
+    },
+    {
+      "id": "sightings-list",
+      "name": "List sightings for a report",
+      "method": "GET",
+      "path": "/api/reports/{{reportId}}/sightings",
+      "auth": "none",
+      "contentType": null,
+      "headers": {},
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/reports/{{reportId}}/sightings'"
+    },
+    {
+      "id": "sightings-create",
+      "name": "Create sighting",
+      "method": "POST",
+      "path": "/api/reports/{{reportId}}/sightings",
+      "auth": "finderToken",
+      "contentType": "application/json",
+      "headers": {
+        "Authorization": "Bearer {{finderToken}}",
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "body": {
+        "note": "I saw a wallet matching this description on a table near the Bahen entrance around 4 PM."
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/reports/{{reportId}}/sightings' -H 'Authorization: Bearer {{finderToken}}' -H 'Content-Type: application/json' --data '{\"note\":\"I saw a wallet matching this description on a table near the Bahen entrance around 4 PM.\"}'",
+      "saveFromResponse": {
+        "sightingId": "data.id"
+      }
+    },
+    {
+      "id": "sightings-delete",
+      "name": "Delete sighting",
+      "method": "DELETE",
+      "path": "/api/sightings/{{sightingId}}",
+      "auth": "finderToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{finderToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X DELETE 'http://localhost:3000/api/sightings/{{sightingId}}' -H 'Authorization: Bearer {{finderToken}}'"
+    },
+    {
+      "id": "messages-list-by-report-owner",
+      "name": "List report messages as owner",
+      "method": "GET",
+      "path": "/api/reports/{{reportId}}/messages",
+      "auth": "ownerToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/reports/{{reportId}}/messages' -H 'Authorization: Bearer {{ownerToken}}'"
+    },
+    {
+      "id": "messages-send",
+      "name": "Send message for a report",
+      "method": "POST",
+      "path": "/api/reports/{{reportId}}/messages",
+      "auth": "ownerToken",
+      "contentType": "application/json",
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}",
+        "Content-Type": "application/json"
+      },
+      "query": {},
+      "bodyExamples": {
+        "owner_to_finder": {
+          "receiverId": "{{finderUserId}}",
+          "messageText": "Thanks for the sighting. Can you tell me exactly where you saw it?"
+        },
+        "finder_to_owner": {
+          "receiverId": "{{ownerUserId}}",
+          "messageText": "I think it was still there near the front entrance about 10 minutes ago."
+        }
+      },
+      "curlExamples": {
+        "owner_to_finder": "curl -X POST 'http://localhost:3000/api/reports/{{reportId}}/messages' -H 'Authorization: Bearer {{ownerToken}}' -H 'Content-Type: application/json' --data '{\"receiverId\":\"{{finderUserId}}\",\"messageText\":\"Thanks for the sighting. Can you tell me exactly where you saw it?\"}'",
+        "finder_to_owner": "curl -X POST 'http://localhost:3000/api/reports/{{reportId}}/messages' -H 'Authorization: Bearer {{finderToken}}' -H 'Content-Type: application/json' --data '{\"receiverId\":\"{{ownerUserId}}\",\"messageText\":\"I think it was still there near the front entrance about 10 minutes ago.\"}'"
+      }
+    },
+    {
+      "id": "messages-conversations-owner",
+      "name": "Get all owner conversations",
+      "method": "GET",
+      "path": "/api/messages/conversations",
+      "auth": "ownerToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X GET 'http://localhost:3000/api/messages/conversations' -H 'Authorization: Bearer {{ownerToken}}'"
+    },
+    {
+      "id": "images-upload-report",
+      "name": "Upload report images",
+      "method": "POST",
+      "path": "/api/reports/{{reportId}}/images",
+      "auth": "ownerToken",
+      "contentType": "multipart/form-data",
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "multipartFormData": {
+        "images": [
+          "./samples/report-wallet-front.jpg",
+          "./samples/report-wallet-inside.jpg"
+        ]
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/reports/{{reportId}}/images' -H 'Authorization: Bearer {{ownerToken}}' -F 'images=@./samples/report-wallet-front.jpg' -F 'images=@./samples/report-wallet-inside.jpg'",
+      "saveFromResponse": {
+        "reportImageId": "data[0].id"
+      }
+    },
+    {
+      "id": "images-upload-sighting",
+      "name": "Upload sighting images",
+      "method": "POST",
+      "path": "/api/sightings/{{sightingId}}/images",
+      "auth": "finderToken",
+      "contentType": "multipart/form-data",
+      "headers": {
+        "Authorization": "Bearer {{finderToken}}"
+      },
+      "query": {},
+      "body": null,
+      "multipartFormData": {
+        "images": [
+          "./samples/sighting-table.jpg"
+        ]
+      },
+      "curl": "curl -X POST 'http://localhost:3000/api/sightings/{{sightingId}}/images' -H 'Authorization: Bearer {{finderToken}}' -F 'images=@./samples/sighting-table.jpg'",
+      "saveFromResponse": {
+        "sightingImageId": "data[0].id"
+      }
+    },
+    {
+      "id": "images-delete-report-image",
+      "name": "Delete one report image",
+      "method": "DELETE",
+      "path": "/api/images/report/{{reportImageId}}",
+      "auth": "ownerToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{ownerToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X DELETE 'http://localhost:3000/api/images/report/{{reportImageId}}' -H 'Authorization: Bearer {{ownerToken}}'"
+    },
+    {
+      "id": "images-delete-sighting-image",
+      "name": "Delete one sighting image",
+      "method": "DELETE",
+      "path": "/api/images/sighting/{{sightingImageId}}",
+      "auth": "finderToken",
+      "contentType": null,
+      "headers": {
+        "Authorization": "Bearer {{finderToken}}"
+      },
+      "query": {},
+      "body": null,
+      "curl": "curl -X DELETE 'http://localhost:3000/api/images/sighting/{{sightingImageId}}' -H 'Authorization: Bearer {{finderToken}}'"
+    }
+  ],
+  "websocket": {
+    "connectExamples": [
+      "ws://localhost:3000/ws",
+      "ws://localhost:3000/ws?token={{ownerToken}}",
+      "ws://localhost:3000/ws?token={{finderToken}}"
+    ],
+    "messages": [
+      {
+        "name": "Subscribe to a report",
+        "body": {
+          "type": "subscribe",
+          "reportId": "{{reportId}}"
+        }
+      },
+      {
+        "name": "Unsubscribe from a report",
+        "body": {
+          "type": "unsubscribe",
+          "reportId": "{{reportId}}"
+        }
+      }
+    ]
+  },
+  "recommendedTestOrder": [
+    "health-check",
+    "auth-register-owner",
+    "auth-register-finder",
+    "auth-login-owner",
+    "auth-login-finder",
+    "auth-profile-owner",
+    "reports-create",
+    "reports-list",
+    "reports-map",
+    "reports-mine",
+    "reports-get-by-id",
+    "images-upload-report",
+    "sightings-list",
+    "sightings-create",
+    "images-upload-sighting",
+    "messages-send",
+    "messages-list-by-report-owner",
+    "messages-conversations-owner",
+    "reports-update",
+    "images-delete-sighting-image",
+    "images-delete-report-image",
+    "sightings-delete",
+    "reports-delete"
+  ]
+}

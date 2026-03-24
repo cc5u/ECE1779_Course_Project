@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Navbar } from '../components/Navbar';
-import { User, Lock, Bell, Trash2, Save } from 'lucide-react';
-import { getProfile } from '../lib/api';
+import { User, Lock, Bell, Trash2, Save, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { StatusConfirmationModal } from '../components/StatusConfirmationModal';
+import { getMyReports, getProfile, getSightings, deleteReport, formatApiError, updateReportStatus, type LostReport, type Sighting } from '../lib/api';
 import { getStoredSession } from '../lib/auth';
 
 export default function Settings() {
-    const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'notifications' | 'account'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'reports' | 'password' | 'notifications' | 'account'>('profile');
     
     // Profile state
     const [profile, setProfile] = useState({
@@ -32,6 +33,16 @@ export default function Settings() {
     });
     
     const [saveMessage, setSaveMessage] = useState('');
+    const [myReports, setMyReports] = useState<LostReport[]>([]);
+    const [reportSightings, setReportSightings] = useState<Record<string, Sighting[]>>({});
+    const [reportsError, setReportsError] = useState('');
+    const [isLoadingReports, setIsLoadingReports] = useState(false);
+    const [pendingOwnerAction, setPendingOwnerAction] = useState<
+        | { type: 'delete'; report: LostReport }
+        | { type: 'mark_found'; report: LostReport }
+        | null
+    >(null);
+    const [isSubmittingOwnerAction, setIsSubmittingOwnerAction] = useState(false);
     const session = getStoredSession();
 
     useEffect(() => {
@@ -57,6 +68,34 @@ export default function Settings() {
         void loadProfile();
     }, [session?.token]);
 
+    useEffect(() => {
+        async function loadOwnerReports() {
+            if (!session?.token) {
+                return;
+            }
+
+            setIsLoadingReports(true);
+            setReportsError('');
+
+            try {
+                const reports = await getMyReports();
+                setMyReports(reports);
+
+                const sightingsEntries = await Promise.all(
+                    reports.map(async (report) => [report.id, await getSightings(report.id)] as const),
+                );
+
+                setReportSightings(Object.fromEntries(sightingsEntries));
+            } catch (error) {
+                setReportsError(formatApiError(error));
+            } finally {
+                setIsLoadingReports(false);
+            }
+        }
+
+        void loadOwnerReports();
+    }, [session?.token]);
+
     const handleProfileSave = () => {
         setSaveMessage('Profile updated successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
@@ -76,6 +115,82 @@ export default function Settings() {
     const handleNotificationsSave = () => {
         setSaveMessage('Notification preferences saved!');
         setTimeout(() => setSaveMessage(''), 3000);
+    };
+
+    const refreshOwnerReports = async () => {
+        if (!session?.token) {
+            return;
+        }
+
+        setIsLoadingReports(true);
+        setReportsError('');
+
+        try {
+            const reports = await getMyReports();
+            setMyReports(reports);
+
+            const sightingsEntries = await Promise.all(
+                reports.map(async (report) => [report.id, await getSightings(report.id)] as const),
+            );
+
+            setReportSightings(Object.fromEntries(sightingsEntries));
+        } catch (error) {
+            setReportsError(formatApiError(error));
+        } finally {
+            setIsLoadingReports(false);
+        }
+    };
+
+    const handleOwnerActionConfirm = async () => {
+        if (!pendingOwnerAction) {
+            return;
+        }
+
+        setIsSubmittingOwnerAction(true);
+        setReportsError('');
+
+        try {
+            if (pendingOwnerAction.type === 'delete') {
+                await deleteReport(pendingOwnerAction.report.id);
+            } else {
+                await updateReportStatus(pendingOwnerAction.report.id, 'found');
+            }
+
+            setPendingOwnerAction(null);
+            await refreshOwnerReports();
+        } catch (error) {
+            setReportsError(formatApiError(error));
+        } finally {
+            setIsSubmittingOwnerAction(false);
+        }
+    };
+
+    const getDisplayStatus = (status: LostReport['status']) => {
+        if (status === 'possibly_found') {
+            return 'Possibly Found';
+        }
+        if (status === 'found') {
+            return 'Found';
+        }
+        if (status === 'archived') {
+            return 'Archived';
+        }
+
+        return 'Lost';
+    };
+
+    const getStatusClassName = (status: LostReport['status']) => {
+        if (status === 'possibly_found') {
+            return 'bg-green-50 text-green-700';
+        }
+        if (status === 'found') {
+            return 'bg-blue-50 text-blue-700';
+        }
+        if (status === 'archived') {
+            return 'bg-gray-100 text-gray-700';
+        }
+
+        return 'bg-red-50 text-red-700';
     };
 
     return (
@@ -108,7 +223,19 @@ export default function Settings() {
                     <User className="w-5 h-5" />
                     <span className="font-medium">Profile</span>
                     </button>
-                    
+
+                    <button
+                    onClick={() => setActiveTab('reports')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                        activeTab === 'reports'
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    >
+                    <ClipboardList className="w-5 h-5" />
+                    <span className="font-medium">My Reports</span>
+                    </button>
+                     
                     <button
                     onClick={() => setActiveTab('password')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -222,7 +349,111 @@ export default function Settings() {
                         </div>
                     </div>
                     )}
-                    
+
+                    {activeTab === 'reports' && (
+                    <div>
+                        <h2 className="text-2xl font-semibold text-gray-900 mb-2">My Reports</h2>
+                        <p className="text-gray-600 mb-6">Review found-item submissions for your reports and manage their final status.</p>
+
+                        {reportsError ? (
+                            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {reportsError}
+                            </div>
+                        ) : null}
+
+                        {isLoadingReports ? (
+                            <p className="text-sm text-gray-500">Loading your reports...</p>
+                        ) : null}
+
+                        {!isLoadingReports && !myReports.length ? (
+                            <p className="text-sm text-gray-500">You have not created any lost-item reports yet.</p>
+                        ) : null}
+
+                        {!isLoadingReports && myReports.length ? (
+                            <div className="space-y-6">
+                                {myReports.map((report) => {
+                                    const sightings = reportSightings[report.id] ?? [];
+
+                                    return (
+                                        <div key={report.id} className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                                            <div className="flex flex-wrap items-start justify-between gap-4">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <h3 className="text-lg font-semibold text-gray-900">{report.itemName}</h3>
+                                                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusClassName(report.status)}`}>
+                                                            {getDisplayStatus(report.status)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600">{report.description}</p>
+                                                    <p className="text-sm text-gray-500">{report.lostLocationText || 'Location unavailable'}</p>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-2">
+                                                    {report.status !== 'found' && report.status !== 'archived' ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPendingOwnerAction({ type: 'mark_found', report })}
+                                                            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+                                                        >
+                                                            <CheckCircle2 className="h-4 w-4" />
+                                                            Mark Found
+                                                        </button>
+                                                    ) : null}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPendingOwnerAction({ type: 'delete', report })}
+                                                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-5 border-t border-gray-200 pt-5">
+                                                <div className="mb-3 flex items-center justify-between">
+                                                    <h4 className="text-sm font-semibold text-gray-900">Found Item Reports</h4>
+                                                    <span className="text-xs text-gray-500">{sightings.length} submission{sightings.length === 1 ? '' : 's'}</span>
+                                                </div>
+
+                                                {sightings.length ? (
+                                                    <div className="space-y-3">
+                                                        {sightings.map((sighting) => (
+                                                            <div key={sighting.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div>
+                                                                        <p className="text-sm font-medium text-gray-900">{sighting.finder?.displayName || 'Finder'}</p>
+                                                                        <p className="text-xs text-gray-500">{formatDateTime(sighting.createdAt)}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{sighting.note || 'No details provided.'}</p>
+                                                                {sighting.images?.length ? (
+                                                                    <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                                                                        {sighting.images.map((image) => (
+                                                                            <img
+                                                                                key={image.id}
+                                                                                src={image.publicUrl}
+                                                                                alt="Found item report"
+                                                                                className="h-28 w-full rounded-lg object-cover"
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-gray-500">No one has submitted a found-item report for this item yet.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                    </div>
+                    )}
+                     
                     {/* Password Tab */}
                     {activeTab === 'password' && (
                     <div>
@@ -407,6 +638,38 @@ export default function Settings() {
             </div>
             </div>
         </div>
+        <StatusConfirmationModal
+            isOpen={pendingOwnerAction !== null}
+            title={pendingOwnerAction?.type === 'delete' ? 'Delete Report' : 'Mark Item as Found'}
+            message={
+                pendingOwnerAction?.type === 'delete'
+                    ? 'Delete this report permanently? This will also remove its found-item submissions.'
+                    : 'Mark this report as found? Finders will still only be able to submit sightings to other active reports.'
+            }
+            confirmLabel={pendingOwnerAction?.type === 'delete' ? 'Delete Report' : 'Mark Found'}
+            confirmButtonClassName={
+                pendingOwnerAction?.type === 'delete'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-green-600 hover:bg-green-700'
+            }
+            isConfirming={isSubmittingOwnerAction}
+            onClose={() => {
+                if (!isSubmittingOwnerAction) {
+                    setPendingOwnerAction(null);
+                }
+            }}
+            onConfirm={handleOwnerActionConfirm}
+        />
         </div>
     );
+}
+
+function formatDateTime(value: string) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return 'Unknown time';
+    }
+
+    return date.toLocaleString();
 }

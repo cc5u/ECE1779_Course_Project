@@ -15,8 +15,10 @@ import {
     type LostReport,
     type MapReport,
 } from '../lib/api';
+import { getStoredSession } from '../lib/auth';
 
 export function Home() {
+    const currentUserId = getStoredSession()?.user.id ?? null;
     const [lostReports, setLostReports] = useState<LostReport[]>([]);
     const [mapPins, setMapPins] = useState<MapReport[]>([]);
     const [errorMessage, setErrorMessage] = useState('');
@@ -54,6 +56,10 @@ export function Home() {
     }
 
     const openFoundModal = (report: LostReport) => {
+        if (report.owner?.id === currentUserId || report.status === 'found' || report.status === 'archived') {
+            return;
+        }
+
         setSelectedReport(report);
         setFoundReportError('');
         setIsFoundModalOpen(true);
@@ -88,6 +94,19 @@ export function Home() {
         } finally {
             setIsSubmittingFoundReport(false);
         }
+    };
+
+    const getDisplayStatus = (status: LostReport['status']) => {
+        if (status === 'possibly_found') {
+            return 'Possibly Found';
+        }
+        if (status === 'found') {
+            return 'Found';
+        }
+        if (status === 'archived') {
+            return 'Archived';
+        }
+        return 'Lost';
     };
 
     const createMarkerIcon = (color: string) =>
@@ -144,18 +163,20 @@ export function Home() {
                                 <p className="font-medium text-gray-900">{pin.itemName}</p>
                                 <p className="text-sm text-gray-600">{pin.lostLocationText || 'Location unavailable'}</p>
                                 <p className="text-xs text-gray-500">Reported by {pin.owner.displayName}</p>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const matchingReport = lostReports.find((report) => report.id === pin.id);
-                                        if (matchingReport) {
-                                            openFoundModal(matchingReport);
-                                        }
-                                    }}
-                                    className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
-                                >
-                                    Report Found
-                                </button>
+                                {pin.status !== 'found' && pin.status !== 'archived' ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const matchingReport = lostReports.find((report) => report.id === pin.id);
+                                            if (matchingReport) {
+                                                openFoundModal(matchingReport);
+                                            }
+                                        }}
+                                        className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                                    >
+                                        Report Found
+                                    </button>
+                                ) : null}
                             </div>
                         </Popup>
                     </Marker>
@@ -201,9 +222,9 @@ export function Home() {
                                         itemName={report.itemName}
                                         location={report.lostLocationText || 'Location unavailable'}
                                         time={formatRelativeTime(report.createdAt)}
-                                        status={report.status === 'possibly_found' ? 'Possibly Found' : 'Lost'}
+                                        status={getDisplayStatus(report.status)}
                                         imageUrl={report.images?.[0]?.publicUrl || ''}
-                                        onClick={() => openFoundModal(report)}
+                                        onClick={report.owner?.id === currentUserId ? undefined : () => openFoundModal(report)}
                                     />
                                 </div>
                             ))

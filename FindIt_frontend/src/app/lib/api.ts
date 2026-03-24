@@ -1,6 +1,6 @@
 import { clearSession, getStoredSession, type AuthSession, type AuthUser } from "./auth";
 
-const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_API_BASE_URL = "http://167.99.181.204:3000/api";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_API_BASE_URL;
 
@@ -20,6 +20,12 @@ interface ApiEnvelope<T> {
 
 type RawLostReport = Omit<LostReport, "images"> & { images?: RawImage[] | null };
 type RawMapReport = Omit<MapReport, "images"> & { images?: RawImage[] | null };
+type RawSighting = Omit<Sighting, "images" | "finder"> & {
+  images?: RawImage[] | null;
+  finder?: ReportOwner | null;
+  user?: ReportOwner | null;
+  owner?: ReportOwner | null;
+};
 
 export interface LoginPayload {
   uoftEmail: string;
@@ -60,10 +66,14 @@ export interface LostReport {
   };
 }
 
+export type ReportStatus = LostReport["status"];
+
 export interface Sighting {
   id: string;
   note: string | null;
   createdAt: string;
+  finder?: ReportOwner;
+  images?: ReportImage[];
 }
 
 export interface MapReport {
@@ -145,6 +155,13 @@ async function request<T>(path: string, init: RequestInit = {}, auth = false): P
 
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
 
+  if (response.ok && payload === null) {
+    return {
+      success: true,
+      data: null as T,
+    };
+  }
+
   if (!response.ok || !payload?.success) {
     if (response.status === 401) {
       clearSession();
@@ -187,6 +204,14 @@ function normalizeMapReport(report: RawMapReport): MapReport {
   };
 }
 
+function normalizeSighting(sighting: RawSighting): Sighting {
+  return {
+    ...sighting,
+    finder: sighting.finder ?? sighting.user ?? sighting.owner ?? undefined,
+    images: sighting.images?.map(normalizeImage) ?? [],
+  };
+}
+
 export async function login(payload: LoginPayload): Promise<AuthSession> {
   const response = await request<AuthResponseData>("/auth/login", {
     method: "POST",
@@ -216,6 +241,11 @@ export async function getReports() {
     reports: response.data.map(normalizeLostReport),
     pagination: response.pagination,
   };
+}
+
+export async function getMyReports() {
+  const response = await request<RawLostReport[]>("/reports/mine", {}, true);
+  return response.data.map(normalizeLostReport);
 }
 
 export async function getMapReports() {
@@ -258,6 +288,21 @@ export async function createSighting(reportId: string, payload: CreateSightingPa
   return response.data;
 }
 
+export async function updateReportStatus(reportId: string, status: ReportStatus) {
+  const response = await request<LostReport>(`/reports/${reportId}`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  }, true);
+
+  return normalizeLostReport(response.data as RawLostReport);
+}
+
+export async function deleteReport(reportId: string) {
+  await request<null>(`/reports/${reportId}`, {
+    method: "DELETE",
+  }, true);
+}
+
 export async function uploadSightingImages(sightingId: string, files: File[]) {
   const formData = new FormData();
   files.forEach((file) => {
@@ -274,6 +319,11 @@ export async function uploadSightingImages(sightingId: string, files: File[]) {
 
 export async function uploadSightingImage(sightingId: string, file: File) {
   return uploadSightingImages(sightingId, [file]);
+}
+
+export async function getSightings(reportId: string) {
+  const response = await request<RawSighting[]>(`/reports/${reportId}/sightings`);
+  return response.data.map(normalizeSighting);
 }
 
 export function formatApiError(error: unknown) {
