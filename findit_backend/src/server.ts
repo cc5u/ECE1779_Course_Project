@@ -20,10 +20,21 @@ import imageRoutes from "./routes/images";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
+const allowedOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 // ─── Global Middleware ───────────────────────────────
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "*",
+  origin(origin, callback) {
+    if (allowedOrigins.length === 0 || !origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));

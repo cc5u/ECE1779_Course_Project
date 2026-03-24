@@ -20,6 +20,7 @@ services:
 
   # ─── Backend API ────────────────────────────────────
   backend:
+    image: chiachun5/findit-backend:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -30,7 +31,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://postgres:postgres@postgres:5432/findit?schema=public}
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/findit?schema=public
       PORT: "3000"
       NODE_ENV: production
       JWT_SECRET: dev-jwt-secret-change-in-production
