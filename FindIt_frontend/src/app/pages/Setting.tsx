@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Navbar } from '../components/Navbar';
-import { User, Lock, Bell, Trash2, Save, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { User, Lock, Bell, Trash2, Save, CheckCircle2, MessageSquare } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { ReportChatModal } from '../components/ReportChatModal';
 import { StatusConfirmationModal } from '../components/StatusConfirmationModal';
-import { getMyReports, getProfile, getSightings, deleteReport, formatApiError, updateReportStatus, type LostReport, type Sighting } from '../lib/api';
+import {
+    deleteReport,
+    formatApiError,
+    getMessageConversations,
+    getMyReports,
+    getProfile,
+    getSightings,
+    updateReportStatus,
+    type LostReport,
+    type MessageConversation,
+    type ReportOwner,
+    type Sighting,
+} from '../lib/api';
 import { getStoredSession } from '../lib/auth';
 
 export default function Settings() {
-    const [activeTab, setActiveTab] = useState<'profile' | 'reports' | 'password' | 'notifications' | 'account'>('profile');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<'profile' | 'reports' | 'messages' | 'password' | 'notifications' | 'account'>('profile');
     
     // Profile state
     const [profile, setProfile] = useState({
@@ -35,15 +50,36 @@ export default function Settings() {
     const [saveMessage, setSaveMessage] = useState('');
     const [myReports, setMyReports] = useState<LostReport[]>([]);
     const [reportSightings, setReportSightings] = useState<Record<string, Sighting[]>>({});
+    const [conversations, setConversations] = useState<MessageConversation[]>([]);
     const [reportsError, setReportsError] = useState('');
     const [isLoadingReports, setIsLoadingReports] = useState(false);
+    const [isLoadingConversations, setIsLoadingConversations] = useState(false);
     const [pendingOwnerAction, setPendingOwnerAction] = useState<
         | { type: 'delete'; report: LostReport }
         | { type: 'mark_found'; report: LostReport }
         | null
     >(null);
     const [isSubmittingOwnerAction, setIsSubmittingOwnerAction] = useState(false);
+    const [chatContext, setChatContext] = useState<{
+        reportId: string;
+        reportItemName: string;
+        reportStatusLabel?: string;
+        participant?: ReportOwner;
+    } | null>(null);
     const session = getStoredSession();
+    const requestedTab = searchParams.get('tab');
+    const isStandaloneTab = activeTab === 'reports' || activeTab === 'messages';
+
+    useEffect(() => {
+        const allowedTabs = new Set(['profile', 'reports', 'messages', 'password', 'notifications', 'account']);
+        const nextTab = requestedTab && allowedTabs.has(requestedTab) ? requestedTab as typeof activeTab : 'profile';
+        setActiveTab(nextTab);
+    }, [requestedTab]);
+
+    const changeTab = (tab: typeof activeTab) => {
+        setActiveTab(tab);
+        setSearchParams(tab === 'profile' ? {} : { tab });
+    };
 
     useEffect(() => {
         async function loadProfile() {
@@ -96,6 +132,27 @@ export default function Settings() {
         void loadOwnerReports();
     }, [session?.token]);
 
+    useEffect(() => {
+        async function loadConversations() {
+            if (!session?.token) {
+                return;
+            }
+
+            setIsLoadingConversations(true);
+
+            try {
+                const nextConversations = await getMessageConversations();
+                setConversations(nextConversations);
+            } catch {
+                // Keep the rest of the settings page usable if conversations fail to load.
+            } finally {
+                setIsLoadingConversations(false);
+            }
+        }
+
+        void loadConversations();
+    }, [session?.token]);
+
     const handleProfileSave = () => {
         setSaveMessage('Profile updated successfully!');
         setTimeout(() => setSaveMessage(''), 3000);
@@ -139,6 +196,25 @@ export default function Settings() {
         } finally {
             setIsLoadingReports(false);
         }
+    };
+
+    const openChat = ({
+        reportId,
+        reportItemName,
+        reportStatusLabel,
+        participant,
+    }: {
+        reportId: string;
+        reportItemName: string;
+        reportStatusLabel?: string;
+        participant?: ReportOwner;
+    }) => {
+        setChatContext({
+            reportId,
+            reportItemName,
+            reportStatusLabel,
+            participant,
+        });
     };
 
     const handleOwnerActionConfirm = async () => {
@@ -208,75 +284,63 @@ export default function Settings() {
                 </div>
             )}
             
-            <div className="flex gap-8">
-                {/* Sidebar Navigation */}
-                <div className="w-64 flex-shrink-0">
-                <div className="bg-white rounded-lg shadow-sm p-2">
-                    <button
-                    onClick={() => setActiveTab('profile')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        activeTab === 'profile'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    >
-                    <User className="w-5 h-5" />
-                    <span className="font-medium">Profile</span>
-                    </button>
+            <div className={isStandaloneTab ? '' : 'flex gap-8'}>
+                {!isStandaloneTab ? (
+                    <div className="w-64 flex-shrink-0">
+                    <div className="bg-white rounded-lg shadow-sm p-2">
+                        <button
+                        onClick={() => changeTab('profile')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                            activeTab === 'profile'
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        >
+                        <User className="w-5 h-5" />
+                        <span className="font-medium">Profile</span>
+                        </button>
 
-                    <button
-                    onClick={() => setActiveTab('reports')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        activeTab === 'reports'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    >
-                    <ClipboardList className="w-5 h-5" />
-                    <span className="font-medium">My Reports</span>
-                    </button>
-                     
-                    <button
-                    onClick={() => setActiveTab('password')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        activeTab === 'password'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    >
-                    <Lock className="w-5 h-5" />
-                    <span className="font-medium">Password</span>
-                    </button>
-                    
-                    <button
-                    onClick={() => setActiveTab('notifications')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        activeTab === 'notifications'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    >
-                    <Bell className="w-5 h-5" />
-                    <span className="font-medium">Notifications</span>
-                    </button>
-                    
-                    <button
-                    onClick={() => setActiveTab('account')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        activeTab === 'account'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                    >
-                    <Trash2 className="w-5 h-5" />
-                    <span className="font-medium">Account</span>
-                    </button>
-                </div>
-                </div>
+                        <button
+                        onClick={() => changeTab('password')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                            activeTab === 'password'
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        >
+                        <Lock className="w-5 h-5" />
+                        <span className="font-medium">Password</span>
+                        </button>
+
+                        <button
+                        onClick={() => changeTab('notifications')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                            activeTab === 'notifications'
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        >
+                        <Bell className="w-5 h-5" />
+                        <span className="font-medium">Notifications</span>
+                        </button>
+                        
+                        <button
+                        onClick={() => changeTab('account')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                            activeTab === 'account'
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        >
+                        <Trash2 className="w-5 h-5" />
+                        <span className="font-medium">Account</span>
+                        </button>
+                    </div>
+                    </div>
+                ) : null}
                 
-                {/* Main Content */}
-                <div className="flex-1">
-                <div className="bg-white rounded-lg shadow-sm p-8">
+                <div className={isStandaloneTab ? '' : 'flex-1'}>
+                <div className={`bg-white rounded-lg shadow-sm p-8 ${isStandaloneTab ? 'mx-auto max-w-[1200px]' : ''}`}>
                     
                     {/* Profile Tab */}
                     {activeTab === 'profile' && (
@@ -425,6 +489,23 @@ export default function Settings() {
                                                                         <p className="text-sm font-medium text-gray-900">{sighting.finder?.displayName || 'Finder'}</p>
                                                                         <p className="text-xs text-gray-500">{formatDateTime(sighting.createdAt)}</p>
                                                                     </div>
+                                                                    {sighting.finder?.id ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                openChat({
+                                                                                    reportId: report.id,
+                                                                                    reportItemName: report.itemName,
+                                                                                    reportStatusLabel: getDisplayStatus(report.status),
+                                                                                    participant: sighting.finder,
+                                                                                })
+                                                                            }
+                                                                            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                                                        >
+                                                                            <MessageSquare className="h-4 w-4" />
+                                                                            Message Finder
+                                                                        </button>
+                                                                    ) : null}
                                                                 </div>
                                                                 <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{sighting.note || 'No details provided.'}</p>
                                                                 {sighting.images?.length ? (
@@ -449,6 +530,68 @@ export default function Settings() {
                                         </div>
                                     );
                                 })}
+                            </div>
+                        ) : null}
+                    </div>
+                    )}
+
+                    {activeTab === 'messages' && (
+                    <div>
+                        <h2 className="text-2xl font-semibold text-gray-900 mb-2">Messages</h2>
+                        <p className="text-gray-600 mb-6">Open a conversation to see live updates for that report.</p>
+
+                        {isLoadingConversations ? (
+                            <p className="text-sm text-gray-500">Loading conversations...</p>
+                        ) : null}
+
+                        {!isLoadingConversations && !conversations.length ? (
+                            <p className="text-sm text-gray-500">No conversations yet. Start one from a report or found-item submission.</p>
+                        ) : null}
+
+                        {!isLoadingConversations && conversations.length ? (
+                            <div className="space-y-3">
+                                {conversations.map((conversation) => (
+                                    <button
+                                        key={`${conversation.reportId}-${conversation.participant?.id ?? 'unknown'}`}
+                                        type="button"
+                                        onClick={() =>
+                                            openChat({
+                                                reportId: conversation.reportId,
+                                                reportItemName: conversation.reportItemName,
+                                                reportStatusLabel: conversation.reportStatus ? getDisplayStatus(conversation.reportStatus) : undefined,
+                                                participant: conversation.participant,
+                                            })
+                                        }
+                                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-left transition-colors hover:bg-gray-100"
+                                    >
+                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                            <div className="space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="font-semibold text-gray-900">{conversation.reportItemName}</p>
+                                                    {conversation.reportStatus ? (
+                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClassName(conversation.reportStatus)}`}>
+                                                            {getDisplayStatus(conversation.reportStatus)}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <p className="text-sm text-gray-600">
+                                                    {conversation.participant ? `Participant: ${conversation.participant.displayName}` : 'Participant unavailable'}
+                                                </p>
+                                                <p className="text-sm text-gray-500">
+                                                    {conversation.lastMessage?.messageText || 'No messages yet.'}
+                                                </p>
+                                            </div>
+                                            <div className="text-right text-xs text-gray-500">
+                                                <p>{conversation.lastMessage ? formatDateTime(conversation.lastMessage.createdAt) : 'No timestamp'}</p>
+                                                {conversation.unreadCount ? (
+                                                    <span className="mt-2 inline-flex rounded-full bg-blue-600 px-2 py-1 font-medium text-white">
+                                                        {conversation.unreadCount} new
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
                         ) : null}
                     </div>
@@ -659,6 +802,16 @@ export default function Settings() {
                 }
             }}
             onConfirm={handleOwnerActionConfirm}
+        />
+        <ReportChatModal
+            isOpen={chatContext !== null}
+            reportId={chatContext?.reportId ?? null}
+            reportItemName={chatContext?.reportItemName}
+            reportStatusLabel={chatContext?.reportStatusLabel}
+            participant={chatContext?.participant}
+            currentUserId={session?.user.id ?? null}
+            authToken={session?.token ?? null}
+            onClose={() => setChatContext(null)}
         />
         </div>
     );

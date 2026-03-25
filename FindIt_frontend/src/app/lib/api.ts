@@ -3,6 +3,8 @@ import { clearSession, getStoredSession, type AuthSession, type AuthUser } from 
 const DEFAULT_API_BASE_URL = "http://167.99.181.204:3000/api";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_API_BASE_URL;
+const DEFAULT_WS_BASE_URL = API_BASE_URL.replace(/\/api$/, "").replace(/^http/i, "ws");
+const WS_BASE_URL = (import.meta.env.VITE_WS_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_WS_BASE_URL;
 
 interface ApiEnvelope<T> {
   success: boolean;
@@ -25,6 +27,50 @@ type RawSighting = Omit<Sighting, "images" | "finder"> & {
   finder?: ReportOwner | null;
   user?: ReportOwner | null;
   owner?: ReportOwner | null;
+};
+type RawMessage = {
+  id?: string;
+  reportId?: string;
+  report_id?: string;
+  senderId?: string;
+  sender_id?: string;
+  receiverId?: string;
+  receiver_id?: string;
+  messageText?: string | null;
+  message?: string | null;
+  text?: string | null;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+  sender?: RawOwnerLike | null;
+  senderUser?: RawOwnerLike | null;
+  fromUser?: RawOwnerLike | null;
+  receiver?: RawOwnerLike | null;
+  receiverUser?: RawOwnerLike | null;
+  toUser?: RawOwnerLike | null;
+};
+type RawConversation = {
+  reportId?: string;
+  report_id?: string;
+  report?: Partial<LostReport> | null;
+  participant?: RawOwnerLike | null;
+  otherUser?: RawOwnerLike | null;
+  user?: RawOwnerLike | null;
+  counterpart?: RawOwnerLike | null;
+  lastMessage?: RawMessage | null;
+  latestMessage?: RawMessage | null;
+  message?: RawMessage | null;
+  unreadCount?: number | null;
+  unread_count?: number | null;
+};
+type RawOwnerLike = {
+  id?: string;
+  userId?: string;
+  user_id?: string;
+  displayName?: string;
+  display_name?: string;
+  name?: string;
 };
 
 export interface LoginPayload {
@@ -76,6 +122,27 @@ export interface Sighting {
   images?: ReportImage[];
 }
 
+export interface ReportMessage {
+  id: string;
+  reportId: string;
+  senderId: string;
+  receiverId: string;
+  messageText: string;
+  createdAt: string;
+  updatedAt?: string;
+  sender?: ReportOwner;
+  receiver?: ReportOwner;
+}
+
+export interface MessageConversation {
+  reportId: string;
+  reportItemName: string;
+  reportStatus?: LostReport["status"];
+  participant?: ReportOwner;
+  lastMessage?: ReportMessage;
+  unreadCount: number;
+}
+
 export interface MapReport {
   id: string;
   itemName: string;
@@ -113,6 +180,11 @@ export interface CreateReportPayload {
 
 export interface CreateSightingPayload {
   note?: string;
+}
+
+export interface SendReportMessagePayload {
+  receiverId: string;
+  messageText: string;
 }
 
 export interface AuthResponseData {
@@ -212,6 +284,69 @@ function normalizeSighting(sighting: RawSighting): Sighting {
   };
 }
 
+function normalizeOwner(value?: RawOwnerLike | null): ReportOwner | undefined {
+  const id = value?.id ?? value?.userId ?? value?.user_id;
+  const displayName = value?.displayName ?? value?.display_name ?? value?.name;
+
+  if (!id && !displayName) {
+    return undefined;
+  }
+
+  return {
+    id: id ?? crypto.randomUUID(),
+    displayName: displayName ?? "Unknown user",
+  };
+}
+
+function normalizeMessage(message: RawMessage): ReportMessage {
+  const sender = normalizeOwner(message.sender ?? message.senderUser ?? message.fromUser);
+  const receiver = normalizeOwner(message.receiver ?? message.receiverUser ?? message.toUser);
+
+  return {
+    id: message.id ?? crypto.randomUUID(),
+    reportId: message.reportId ?? message.report_id ?? "",
+    senderId: message.senderId ?? message.sender_id ?? sender?.id ?? "",
+    receiverId: message.receiverId ?? message.receiver_id ?? receiver?.id ?? "",
+    messageText: message.messageText ?? message.message ?? message.text ?? "",
+    createdAt: message.createdAt ?? message.created_at ?? new Date().toISOString(),
+    updatedAt: message.updatedAt ?? message.updated_at,
+    sender,
+    receiver,
+  };
+}
+
+function normalizeConversation(conversation: RawConversation): MessageConversation {
+  const report = conversation.report;
+  const lastMessage = conversation.lastMessage ?? conversation.latestMessage ?? conversation.message;
+
+  return {
+    reportId: conversation.reportId ?? conversation.report_id ?? report?.id ?? "",
+    reportItemName: report?.itemName ?? "Lost item report",
+    reportStatus: report?.status,
+    participant: normalizeOwner(
+      conversation.participant ??
+        conversation.otherUser ??
+        conversation.user ??
+        conversation.counterpart,
+    ),
+    lastMessage: lastMessage ? normalizeMessage(lastMessage) : undefined,
+    unreadCount: conversation.unreadCount ?? conversation.unread_count ?? 0,
+  };
+}
+
+export function parseReportMessage(value: unknown): ReportMessage | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const normalized = normalizeMessage(value as RawMessage);
+  if (!normalized.reportId || !normalized.senderId || !normalized.receiverId || !normalized.messageText.trim()) {
+    return null;
+  }
+
+  return normalized;
+}
+
 export async function login(payload: LoginPayload): Promise<AuthSession> {
   const response = await request<AuthResponseData>("/auth/login", {
     method: "POST",
@@ -246,6 +381,11 @@ export async function getReports() {
 export async function getMyReports() {
   const response = await request<RawLostReport[]>("/reports/mine", {}, true);
   return response.data.map(normalizeLostReport);
+}
+
+export async function getReport(reportId: string) {
+  const response = await request<RawLostReport>(`/reports/${reportId}`, {}, true);
+  return normalizeLostReport(response.data);
 }
 
 export async function getMapReports() {
@@ -326,6 +466,25 @@ export async function getSightings(reportId: string) {
   return response.data.map(normalizeSighting);
 }
 
+export async function getReportMessages(reportId: string) {
+  const response = await request<RawMessage[]>(`/reports/${reportId}/messages`, {}, true);
+  return response.data.map(normalizeMessage);
+}
+
+export async function sendReportMessage(reportId: string, payload: SendReportMessagePayload) {
+  const response = await request<RawMessage>(`/reports/${reportId}/messages`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, true);
+
+  return normalizeMessage(response.data);
+}
+
+export async function getMessageConversations() {
+  const response = await request<RawConversation[]>("/messages/conversations", {}, true);
+  return response.data.map(normalizeConversation);
+}
+
 export function formatApiError(error: unknown) {
   if (error instanceof ApiError) {
     if (error.details?.length) {
@@ -339,4 +498,16 @@ export function formatApiError(error: unknown) {
 
 export function getApiBaseUrl() {
   return API_BASE_URL;
+}
+
+export function getWebSocketBaseUrl() {
+  return WS_BASE_URL;
+}
+
+export function getAuthenticatedWebSocketUrl(token?: string) {
+  const url = new URL(`${WS_BASE_URL}/ws`);
+  if (token) {
+    url.searchParams.set("token", token);
+  }
+  return url.toString();
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { DivIcon } from 'leaflet';
-import { Plus } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { Navbar } from '../components/Navbar';
+import { ReportChatModal } from '../components/ReportChatModal';
 import { ReportCard } from '../components/ReportCard';
 import { UploadFoundItemModal, type FoundItemSubmission } from '../components/UploadFoundItemModal';
 import {
@@ -18,7 +19,8 @@ import {
 import { getStoredSession } from '../lib/auth';
 
 export function Home() {
-    const currentUserId = getStoredSession()?.user.id ?? null;
+    const session = getStoredSession();
+    const currentUserId = session?.user.id ?? null;
     const [lostReports, setLostReports] = useState<LostReport[]>([]);
     const [mapPins, setMapPins] = useState<MapReport[]>([]);
     const [errorMessage, setErrorMessage] = useState('');
@@ -27,6 +29,7 @@ export function Home() {
     const [isFoundModalOpen, setIsFoundModalOpen] = useState(false);
     const [isSubmittingFoundReport, setIsSubmittingFoundReport] = useState(false);
     const [foundReportError, setFoundReportError] = useState('');
+    const [chatReport, setChatReport] = useState<LostReport | null>(null);
 
     useEffect(() => {
         async function loadHomeData() {
@@ -73,6 +76,18 @@ export function Home() {
         setIsFoundModalOpen(false);
         setSelectedReport(null);
         setFoundReportError('');
+    };
+
+    const openChatModal = (report: LostReport) => {
+        if (!session?.token || !report.owner || report.owner.id === currentUserId) {
+            return;
+        }
+
+        setChatReport(report);
+    };
+
+    const closeChatModal = () => {
+        setChatReport(null);
     };
 
     const handleFoundSubmit = async ({ address, description, files }: FoundItemSubmission) => {
@@ -164,18 +179,34 @@ export function Home() {
                                 <p className="text-sm text-gray-600">{pin.lostLocationText || 'Location unavailable'}</p>
                                 <p className="text-xs text-gray-500">Reported by {pin.owner.displayName}</p>
                                 {pin.status !== 'found' && pin.status !== 'archived' ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const matchingReport = lostReports.find((report) => report.id === pin.id);
-                                            if (matchingReport) {
-                                                openFoundModal(matchingReport);
-                                            }
-                                        }}
-                                        className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
-                                    >
-                                        Report Found
-                                    </button>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const matchingReport = lostReports.find((report) => report.id === pin.id);
+                                                if (matchingReport) {
+                                                    openFoundModal(matchingReport);
+                                                }
+                                            }}
+                                            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                                        >
+                                            Report Found
+                                        </button>
+                                        {session?.token && pin.owner.displayName && currentUserId !== lostReports.find((report) => report.id === pin.id)?.owner?.id ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const matchingReport = lostReports.find((report) => report.id === pin.id);
+                                                    if (matchingReport) {
+                                                        openChatModal(matchingReport);
+                                                    }
+                                                }}
+                                                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                            >
+                                                Message Owner
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 ) : null}
                             </div>
                         </Popup>
@@ -225,6 +256,18 @@ export function Home() {
                                         status={getDisplayStatus(report.status)}
                                         imageUrl={report.images?.[0]?.publicUrl || ''}
                                         onClick={report.owner?.id === currentUserId ? undefined : () => openFoundModal(report)}
+                                        actions={
+                                            session?.token && report.owner?.id !== currentUserId && report.status !== 'found' && report.status !== 'archived' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openChatModal(report)}
+                                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                                >
+                                                    <MessageSquare className="h-4 w-4" />
+                                                    Message Owner
+                                                </button>
+                                            ) : null
+                                        }
                                     />
                                 </div>
                             ))
@@ -244,6 +287,16 @@ export function Home() {
             errorMessage={foundReportError}
             onClose={closeFoundModal}
             onSubmit={handleFoundSubmit}
+        />
+        <ReportChatModal
+            isOpen={chatReport !== null}
+            reportId={chatReport?.id ?? null}
+            reportItemName={chatReport?.itemName}
+            reportStatusLabel={chatReport ? getDisplayStatus(chatReport.status) : undefined}
+            participant={chatReport?.owner}
+            currentUserId={currentUserId}
+            authToken={session?.token ?? null}
+            onClose={closeChatModal}
         />
         </div>
     );
