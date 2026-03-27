@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { DivIcon } from 'leaflet';
+import { useEffect, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { MessageSquare, Plus } from 'lucide-react';
 import { Link } from 'react-router';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import { Navbar } from '../components/Navbar';
 import { ReportChatModal } from '../components/ReportChatModal';
 import { ReportCard } from '../components/ReportCard';
@@ -30,6 +30,8 @@ export function Home() {
     const [isSubmittingFoundReport, setIsSubmittingFoundReport] = useState(false);
     const [foundReportError, setFoundReportError] = useState('');
     const [chatReport, setChatReport] = useState<LostReport | null>(null);
+    const mapContainerRef = useRef<HTMLDivElement | null>(null);
+    const mapRef = useRef<maplibregl.Map | null>(null);
 
     useEffect(() => {
         async function loadHomeData() {
@@ -40,22 +42,22 @@ export function Home() {
     }, []);
 
     async function refreshHomeData() {
-            setIsLoading(true);
-            setErrorMessage('');
+        setIsLoading(true);
+        setErrorMessage('');
 
-            try {
-                const [{ reports }, mapReports] = await Promise.all([
-                    getReports(),
-                    getMapReports(),
-                ]);
+        try {
+            const [{ reports }, nextMapReports] = await Promise.all([
+                getReports(),
+                getMapReports(),
+            ]);
 
-                setLostReports(reports);
-                setMapPins(mapReports);
-            } catch (error) {
-                setErrorMessage(formatApiError(error));
-            } finally {
-                setIsLoading(false);
-            }
+            setLostReports(reports);
+            setMapPins(nextMapReports);
+        } catch (error) {
+            setErrorMessage(formatApiError(error));
+        } finally {
+            setIsLoading(false);
+        }
     }
 
     const openFoundModal = (report: LostReport) => {
@@ -124,180 +126,224 @@ export function Home() {
         return 'Lost';
     };
 
-    const createMarkerIcon = (color: string) =>
-        new DivIcon({
-            className: 'custom-map-pin',
-            html: `
-                <div style="position: relative; width: 20px; height: 20px;">
-                    <span style="position: absolute; inset: -10px; border-radius: 9999px; background: ${color}; opacity: 0.2;"></span>
-                    <span style="position: absolute; inset: 0; border-radius: 9999px; background: ${color}; border: 3px solid white; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);"></span>
-                </div>
-            `,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-            popupAnchor: [0, -10],
+    useEffect(() => {
+        if (!mapContainerRef.current) {
+            return;
+        }
+
+        const map = new maplibregl.Map({
+            container: mapContainerRef.current,
+            style: 'https://tiles.openfreemap.org/styles/bright',
+            center: [-79.3987, 43.6629],
+            zoom: 15.8,
+            pitch: 55,
         });
+
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        map.on('load', () => {
+            const layers = map.getStyle().layers;
+            const firstLabelLayer = layers?.find((layer) => layer.type === 'symbol')?.id;
+
+            map.addLayer(
+                {
+                    id: '3d-buildings',
+                    type: 'fill-extrusion',
+                    source: 'openmaptiles',
+                    'source-layer': 'building',
+                    paint: {
+                        'fill-extrusion-color': '#d9d2c3',
+                        'fill-extrusion-height': ['get', 'render_height'],
+                        'fill-extrusion-base': ['get', 'render_min_height'],
+                        'fill-extrusion-opacity': 0.68,
+                    },
+                },
+                firstLabelLayer,
+            );
+        });
+
+        mapRef.current = map;
+
+        return () => {
+            map.remove();
+            mapRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) {
+            return;
+        }
+
+        const currentMarkers: maplibregl.Marker[] = [];
+
+        mapPins.forEach((pin) => {
+            const matchingReport = lostReports.find((report) => report.id === pin.id);
+            const canReportFound =
+                Boolean(matchingReport) &&
+                matchingReport?.owner?.id !== currentUserId &&
+                matchingReport?.status !== 'found' &&
+                matchingReport?.status !== 'archived';
+            const canMessageOwner = Boolean(
+                matchingReport &&
+                    session?.token &&
+                    matchingReport.owner &&
+                    matchingReport.owner.id !== currentUserId,
+            );
+
+            const markerElement = document.createElement('div');
+            markerElement.className = 'custom-marker';
+            markerElement.style.width = '18px';
+            markerElement.style.height = '18px';
+            markerElement.style.borderRadius = '50%';
+            markerElement.style.background = pin.status === 'possibly_found' ? '#22c55e' : '#ef4444';
+            markerElement.style.border = '3px solid white';
+            markerElement.style.boxShadow = '0 10px 25px rgba(15, 23, 42, 0.18)';
+            markerElement.style.cursor = 'pointer';
+
+            const popupContent = document.createElement('div');
+            popupContent.className = 'p-2 space-y-1';
+
+            const title = document.createElement('p');
+            title.className = 'font-bold';
+            title.textContent = pin.itemName;
+            popupContent.appendChild(title);
+
+            const location = document.createElement('p');
+            location.className = 'text-sm text-gray-600';
+            location.textContent = pin.lostLocationText || 'Location unavailable';
+            popupContent.appendChild(location);
+
+            const owner = document.createElement('p');
+            owner.className = 'text-xs text-gray-500';
+            owner.textContent = `Reported by ${pin.owner.displayName}`;
+            popupContent.appendChild(owner);
+
+            if (canReportFound || canMessageOwner) {
+                const actions = document.createElement('div');
+                actions.className = 'mt-2 flex flex-wrap gap-2';
+
+                if (canReportFound && matchingReport) {
+                    const reportFoundButton = document.createElement('button');
+                    reportFoundButton.type = 'button';
+                    reportFoundButton.className = 'rounded bg-blue-600 px-2 py-1 text-xs text-white';
+                    reportFoundButton.textContent = 'Report Found';
+                    reportFoundButton.addEventListener('click', () => {
+                        openFoundModal(matchingReport);
+                    });
+                    actions.appendChild(reportFoundButton);
+                }
+
+                if (canMessageOwner && matchingReport) {
+                    const messageOwnerButton = document.createElement('button');
+                    messageOwnerButton.type = 'button';
+                    messageOwnerButton.className = 'rounded border border-gray-300 px-2 py-1 text-xs text-gray-700';
+                    messageOwnerButton.textContent = 'Message Owner';
+                    messageOwnerButton.addEventListener('click', () => {
+                        openChatModal(matchingReport);
+                    });
+                    actions.appendChild(messageOwnerButton);
+                }
+
+                popupContent.appendChild(actions);
+            }
+
+            const marker = new maplibregl.Marker({ element: markerElement })
+                .setLngLat([pin.longitude, pin.latitude])
+                .setPopup(new maplibregl.Popup({ offset: 25 }).setDOMContent(popupContent))
+                .addTo(map);
+
+            currentMarkers.push(marker);
+        });
+
+        return () => {
+            currentMarkers.forEach((marker) => marker.remove());
+        };
+    }, [currentUserId, lostReports, mapPins, session?.token]);
 
     return (
         <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        
-        <main className="pt-16">
-            <div className="max-w-[1440px] mx-auto flex h-[calc(100vh-4rem)]">
-            {/* Map Area - 70% width */}
-            <div className="relative w-[70%] bg-white border-r border-gray-200">
-                {/* Hero Message Overlay */}
-                <div className="absolute top-8 left-8 z-10 bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-lg max-w-md">
-                <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                    Help people find their lost belongings
-                </h1>
-                <p className="text-gray-600">
-                    Report lost items or help others by marking found items.
-                </p>
-                </div>
+            <Navbar />
+            <main className="pt-16">
+                <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-[1440px]">
+                    <div className="relative w-[70%] border-r border-gray-200 bg-white">
+                        <div ref={mapContainerRef} className="relative h-full w-full z-0" />
 
-                <div className="w-full h-full relative">
-                <MapContainer
-                    center={[43.6532, -79.3832]}
-                    zoom={13}
-                    scrollWheelZoom
-                    className="h-full w-full z-0"
-                >
-                    <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    {mapPins.map((pin) => (
-                    <Marker
-                        key={pin.id}
-                        position={[pin.latitude, pin.longitude]}
-                        icon={createMarkerIcon(pin.status === 'possibly_found' ? '#22c55e' : '#ef4444')}
-                    >
-                        <Popup>
-                            <div className="space-y-1">
-                                <p className="font-medium text-gray-900">{pin.itemName}</p>
-                                <p className="text-sm text-gray-600">{pin.lostLocationText || 'Location unavailable'}</p>
-                                <p className="text-xs text-gray-500">Reported by {pin.owner.displayName}</p>
-                                {pin.status !== 'found' && pin.status !== 'archived' ? (
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const matchingReport = lostReports.find((report) => report.id === pin.id);
-                                                if (matchingReport) {
-                                                    openFoundModal(matchingReport);
-                                                }
-                                            }}
-                                            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
-                                        >
-                                            Report Found
-                                        </button>
-                                        {session?.token && pin.owner.displayName && currentUserId !== lostReports.find((report) => report.id === pin.id)?.owner?.id ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const matchingReport = lostReports.find((report) => report.id === pin.id);
-                                                    if (matchingReport) {
-                                                        openChatModal(matchingReport);
-                                                    }
-                                                }}
-                                                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                                            >
-                                                Message Owner
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                ) : null}
-                            </div>
-                        </Popup>
-                    </Marker>
-                    ))}
-                </MapContainer>
-                </div>
-
-                {/* Floating Action Button */}
-                <Link 
-                to="/report"
-                className="absolute bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all w-16 h-16 flex items-center justify-center group"
-                >
-                <Plus className="w-6 h-6" />
-                <span className="absolute right-full mr-3 bg-gray-900 text-white text-sm px-3 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Report
-                </span>
-                </Link>
-            </div>
-
-            {/* Right Sidebar - 30% width */}
-            <div className="w-[30%] bg-white overflow-y-auto">
-                <div className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                    Recent Lost Reports
-                </h2>
-
-                {errorMessage ? (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {errorMessage}
+                        <Link
+                            to="/report"
+                            className="absolute bottom-8 right-8 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition-all hover:bg-blue-700"
+                        >
+                            <Plus className="h-6 w-6" />
+                        </Link>
                     </div>
-                ) : null}
 
-                {isLoading ? (
-                    <p className="text-sm text-gray-500">Loading reports...</p>
-                ) : null}
+                    <div className="w-[30%] overflow-y-auto bg-white p-6">
+                        <h2 className="mb-6 text-xl font-semibold text-gray-900">Recent Lost Reports</h2>
 
-                {!isLoading && !errorMessage ? (
-                    <div className="space-y-4">
-                        {lostReports.length ? (
-                            lostReports.map((report) => (
-                                <div key={report.id}>
-                                    <ReportCard
-                                        itemName={report.itemName}
-                                        location={report.lostLocationText || 'Location unavailable'}
-                                        time={formatRelativeTime(report.createdAt)}
-                                        status={getDisplayStatus(report.status)}
-                                        imageUrl={report.images?.[0]?.publicUrl || ''}
-                                        onClick={report.owner?.id === currentUserId ? undefined : () => openFoundModal(report)}
-                                        actions={
-                                            session?.token && report.owner?.id !== currentUserId && report.status !== 'found' && report.status !== 'archived' ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openChatModal(report)}
-                                                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                                                >
-                                                    <MessageSquare className="h-4 w-4" />
-                                                    Message Owner
-                                                </button>
-                                            ) : null
-                                        }
-                                    />
-                                </div>
-                            ))
+                        {errorMessage ? (
+                            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {errorMessage}
+                            </div>
+                        ) : null}
+
+                        {isLoading ? (
+                            <p className="text-sm text-gray-500">Loading reports...</p>
                         ) : (
-                            <p className="text-sm text-gray-500">No reports found yet.</p>
+                            <div className="space-y-4">
+                                {lostReports.length ? (
+                                    lostReports.map((report) => (
+                                        <ReportCard
+                                            key={report.id}
+                                            itemName={report.itemName}
+                                            location={report.lostLocationText || 'Location unavailable'}
+                                            time={formatRelativeTime(report.createdAt)}
+                                            status={getDisplayStatus(report.status)}
+                                            imageUrl={report.images?.[0]?.publicUrl || ''}
+                                            onClick={report.owner?.id === currentUserId ? undefined : () => openFoundModal(report)}
+                                            actions={
+                                                session?.token &&
+                                                report.owner?.id !== currentUserId &&
+                                                report.status !== 'found' &&
+                                                report.status !== 'archived' ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openChatModal(report)}
+                                                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                                    >
+                                                        <MessageSquare className="h-4 w-4" />
+                                                        Message Owner
+                                                    </button>
+                                                ) : null
+                                            }
+                                        />
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-gray-500">No reports found yet.</p>
+                                )}
+                            </div>
                         )}
                     </div>
-                ) : null}
                 </div>
-            </div>
-            </div>
-        </main>
-        <UploadFoundItemModal
-            isOpen={isFoundModalOpen}
-            itemName={selectedReport?.itemName || 'Lost item'}
-            isSubmitting={isSubmittingFoundReport}
-            errorMessage={foundReportError}
-            onClose={closeFoundModal}
-            onSubmit={handleFoundSubmit}
-        />
-        <ReportChatModal
-            isOpen={chatReport !== null}
-            reportId={chatReport?.id ?? null}
-            reportItemName={chatReport?.itemName}
-            reportStatusLabel={chatReport ? getDisplayStatus(chatReport.status) : undefined}
-            participant={chatReport?.owner}
-            currentUserId={currentUserId}
-            authToken={session?.token ?? null}
-            onClose={closeChatModal}
-        />
+            </main>
+            <UploadFoundItemModal
+                isOpen={isFoundModalOpen}
+                itemName={selectedReport?.itemName || 'Lost item'}
+                isSubmitting={isSubmittingFoundReport}
+                errorMessage={foundReportError}
+                onClose={closeFoundModal}
+                onSubmit={handleFoundSubmit}
+            />
+            <ReportChatModal
+                isOpen={chatReport !== null}
+                reportId={chatReport?.id ?? null}
+                reportItemName={chatReport?.itemName}
+                reportStatusLabel={chatReport ? getDisplayStatus(chatReport.status) : undefined}
+                participant={chatReport?.owner}
+                currentUserId={currentUserId}
+                authToken={session?.token ?? null}
+                onClose={closeChatModal}
+            />
         </div>
     );
 }
