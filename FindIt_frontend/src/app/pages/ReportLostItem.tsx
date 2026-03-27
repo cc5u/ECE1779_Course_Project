@@ -1,8 +1,15 @@
-import { useState } from 'react';
-import { Link } from 'react-router';
-import { Circle, MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { Upload, MapPin } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
+import { createReport, formatApiError, uploadReportImages } from '../lib/api';
+
+type LocationSearchResult = {
+    lat: string;
+    lon: string;
+    display_name: string;
+};
 
 function LocationPicker({
     onSelect,
@@ -18,19 +25,198 @@ function LocationPicker({
     return null;
 }
 
+function MapViewport({ center }: { center: [number, number] }) {
+    const map = useMap();
+
+    useEffect(() => {
+        map.flyTo(center, map.getZoom(), {
+            duration: 1,
+        });
+    }, [center, map]);
+
+    return null;
+}
+
 export default function ReportLostItem() {
+    const navigate = useNavigate();
     const [radius, setRadius] = useState(200);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [pinPosition, setPinPosition] = useState<[number, number]>([43.6532, -79.3832]);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [formData, setFormData] = useState({
+        itemName: '',
+        description: '',
+        lostDate: '',
+        lostTime: '',
+        searchLocation: '',
+    });
+    const [errorMessage, setErrorMessage] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isResolvingLocation, setIsResolvingLocation] = useState(false);
+    const [locationMessage, setLocationMessage] = useState('');
+    const skipAddressLookupRef = useRef(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
+        const files = Array.from(e.target.files ?? []);
+
+        if (previewUrls.length) {
+            previewUrls.forEach((url) => URL.revokeObjectURL(url));
         }
+
+        if (files.length) {
+            setSelectedFiles(files);
+            setPreviewUrls(files.map((file) => URL.createObjectURL(file)));
+            return;
+        }
+
+        setSelectedFiles([]);
+        setPreviewUrls([]);
     }; // This function handles the file input change event.
-    //  It retrieves the selected file, updates the state with the file, and generates a preview URL for displaying the image.
+    //  It retrieves the selected files, updates the state, and generates preview URLs for displaying them.
+
+    useEffect(() => {
+        return () => {
+            previewUrls.forEach((url) => URL.revokeObjectURL(url));
+        };
+    }, [previewUrls]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        if (e.target.id === 'searchLocation') {
+            skipAddressLookupRef.current = false;
+            setLocationMessage('');
+        }
+
+        setFormData((current) => ({
+            ...current,
+            [e.target.id]: e.target.value,
+        }));
+    };
+
+    useEffect(() => {
+        const query = formData.searchLocation.trim();
+
+        if (skipAddressLookupRef.current || query.length < 3) {
+            return;
+        }
+
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setIsResolvingLocation(true);
+            setLocationMessage('');
+
+            try {
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`,
+                    {
+                        signal: controller.signal,
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error('Unable to find that address.');
+                }
+
+                const results = (await response.json()) as LocationSearchResult[];
+
+                if (!results.length) {
+                    setLocationMessage('No matching address found. Try a more specific search.');
+                    return;
+                }
+
+                const [match] = results;
+                setPinPosition([Number(match.lat), Number(match.lon)]);
+                setLocationMessage(`Map updated to ${match.display_name}`);
+            } catch (error) {
+                if (controller.signal.aborted) {
+                    return;
+                }
+
+                setLocationMessage('Address lookup failed. You can still click the map to choose a location.');
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsResolvingLocation(false);
+                }
+            }
+        }, 500);
+
+        return () => {
+            controller.abort();
+            window.clearTimeout(timer);
+        };
+    }, [formData.searchLocation]);
+
+    const handleMapSelection = async (position: [number, number]) => {
+        setPinPosition(position);
+        setLocationMessage('');
+        setIsResolvingLocation(true);
+
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${position[0]}&lon=${position[1]}`,
+                {
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error('Unable to resolve the selected point.');
+            }
+
+            const result = (await response.json()) as { display_name?: string };
+
+            if (result.display_name) {
+                skipAddressLookupRef.current = true;
+                setFormData((current) => ({
+                    ...current,
+                    searchLocation: result.display_name ?? current.searchLocation,
+                }));
+                setLocationMessage(`Address updated from map selection.`);
+            }
+        } catch {
+            setLocationMessage('Coordinates updated. Address could not be resolved automatically.');
+        } finally {
+            setIsResolvingLocation(false);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setErrorMessage('');
+
+        if (!formData.lostDate || !formData.lostTime) {
+            setErrorMessage('Lost date and time are required.');
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const report = await createReport({
+                itemName: formData.itemName,
+                description: formData.description,
+                lostTime: new Date(`${formData.lostDate}T${formData.lostTime}`).toISOString(),
+                lostLocationText: formData.searchLocation,
+                latitude: pinPosition[0],
+                longitude: pinPosition[1],
+                radiusMeters: radius,
+            });
+
+            if (selectedFiles.length) {
+                await uploadReportImages(report.id, selectedFiles);
+            }
+
+            navigate('/home');
+        } catch (error) {
+            setErrorMessage(formatApiError(error));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -50,7 +236,12 @@ export default function ReportLostItem() {
                 </div>
 
                 {/* Form */}
-                <form className="space-y-6">
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                {errorMessage ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {errorMessage}
+                    </div>
+                ) : null}
                 {/* Item Name */}
                 <div>
                     <label htmlFor="itemName" className="block text-sm font-medium text-gray-900 mb-2">
@@ -60,6 +251,8 @@ export default function ReportLostItem() {
                     type="text"
                     id="itemName"
                     placeholder="e.g., Black leather wallet"
+                    value={formData.itemName}
+                    onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     required
                     />
@@ -74,6 +267,8 @@ export default function ReportLostItem() {
                     id="description"
                     rows={4}
                     placeholder="Provide additional details such as brand, color, or identifying features"
+                    value={formData.description}
+                    onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
                     required
                     />
@@ -88,6 +283,8 @@ export default function ReportLostItem() {
                     <input
                         type="date"
                         id="lostDate"
+                        value={formData.lostDate}
+                        onChange={handleChange}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                         required
                     />
@@ -99,6 +296,8 @@ export default function ReportLostItem() {
                     <input
                         type="time"
                         id="lostTime"
+                        value={formData.lostTime}
+                        onChange={handleChange}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                         required
                     />
@@ -114,8 +313,13 @@ export default function ReportLostItem() {
                     type="text"
                     id="searchLocation"
                     placeholder="Enter address or place"
+                    value={formData.searchLocation}
+                    onChange={handleChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
+                    <p className="mt-2 text-sm text-gray-500">
+                    {isResolvingLocation ? 'Updating map location...' : locationMessage || 'Type an address to move the map, or click the map to fill the address.'}
+                    </p>
                 </div>
 
                 {/* Lost Location Map */}
@@ -133,11 +337,12 @@ export default function ReportLostItem() {
                         scrollWheelZoom
                         className="h-full w-full cursor-crosshair"
                     >
+                        <MapViewport center={pinPosition} />
                         <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
-                        <LocationPicker onSelect={setPinPosition} />
+                        <LocationPicker onSelect={handleMapSelection} />
                         <Circle
                         center={pinPosition}
                         radius={radius}
@@ -189,24 +394,30 @@ export default function ReportLostItem() {
                         type="file"
                         id="imageUpload"
                         accept="image/*"
+                        multiple
                         onChange={handleFileChange}
                         className="hidden"
                     />
                     <label htmlFor="imageUpload" className="cursor-pointer">
-                        {previewUrl ? (
+                        {previewUrls.length ? (
                         <div className="space-y-2">
-                            <img 
-                            src={previewUrl} 
-                            alt="Preview" 
-                            className="max-h-48 mx-auto rounded-lg"
-                            />
-                            <p className="text-sm text-gray-600">Click to change image</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                {previewUrls.map((previewUrl, index) => (
+                                    <img
+                                        key={previewUrl}
+                                        src={previewUrl}
+                                        alt={`Preview ${index + 1}`}
+                                        className="h-32 w-full rounded-lg object-cover"
+                                    />
+                                ))}
+                            </div>
+                            <p className="text-sm text-gray-600">Click to change images</p>
                         </div>
                         ) : (
                         <div className="space-y-2">
                             <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                            <p className="text-gray-600">Upload a photo of the item</p>
-                            <p className="text-sm text-gray-500">Click to browse or drag and drop</p>
+                            <p className="text-gray-600">Upload photos of the item</p>
+                            <p className="text-sm text-gray-500">Click to browse one or more images</p>
                         </div>
                         )}
                     </label>
@@ -223,9 +434,10 @@ export default function ReportLostItem() {
                     </Link>
                     <button
                     type="submit"
+                    disabled={isSubmitting}
                     className="px-8 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
                     >
-                    Submit Report
+                    {isSubmitting ? 'Submitting...' : 'Submit Report'}
                     </button>
                 </div>
                 </form>

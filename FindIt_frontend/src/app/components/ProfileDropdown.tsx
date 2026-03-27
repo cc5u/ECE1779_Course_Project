@@ -1,11 +1,41 @@
 import {useState, useRef, useEffect} from 'react';
 import {Settings, LogOut, Mail, Phone} from 'lucide-react';
 import {Link, useNavigate} from 'react-router';
+import { clearSession, getStoredSession } from '../lib/auth';
+import { getProfile } from '../lib/api';
 
 export function ProfileDropdown() {
     const [isOpen, setIsOpen] = useState(false); // State to track dropdown visibility
     const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown element
     const navigate = useNavigate(); // Hook for navigation
+    const session = getStoredSession();
+    const [reportCount, setReportCount] = useState(0);
+
+    useEffect(() => {
+      async function loadProfile() {
+        if (!session?.token) {
+          return;
+        }
+
+        try {
+          const profile = await getProfile();
+          setReportCount(profile._count?.reports ?? 0);
+        } catch {
+          setReportCount(0);
+        }
+      }
+
+      void loadProfile();
+    }, [session?.token]);
+
+    const initials = session?.user.displayName
+      ? session.user.displayName
+          .split(' ')
+          .map((part) => part[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()
+      : 'GU';
 
     
     useEffect(() => {
@@ -26,7 +56,7 @@ export function ProfileDropdown() {
 
     const handleLogout = () => {
         setIsOpen(false); 
-        localStorage.removeItem('user'); // Remove user data from localStorage
+        clearSession();
         navigate('/login');
     }; // Function to handle logout action
 
@@ -37,7 +67,7 @@ export function ProfileDropdown() {
         className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center ml-2 hover:bg-gray-300 transition-colors"
         title="Profile"
       >
-        <span className="text-gray-600 text-sm font-medium">JD</span>
+        <span className="text-gray-600 text-sm font-medium">{initials}</span>
       </button>
 
       {isOpen && (
@@ -46,11 +76,11 @@ export function ProfileDropdown() {
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 text-lg font-semibold">JD</span>
+                <span className="text-blue-600 text-lg font-semibold">{initials}</span>
               </div>
               <div>
-                <div className="font-semibold text-gray-900">John Doe</div>
-                <div className="text-sm text-gray-500">john.doe@example.com</div>
+                <div className="font-semibold text-gray-900">{session?.user.displayName || 'Guest User'}</div>
+                <div className="text-sm text-gray-500">{session?.user.uoftEmail || 'Not signed in'}</div>
               </div>
             </div>
           </div>
@@ -60,11 +90,11 @@ export function ProfileDropdown() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-700">john.doe@example.com</span>
+                <span className="text-gray-700">{session?.user.uoftEmail || 'Not signed in'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-700">+1 (555) 123-4567</span>
+                <span className="text-gray-700">Not provided</span>
               </div>
             </div>
           </div>
@@ -73,7 +103,7 @@ export function ProfileDropdown() {
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <div className="text-2xl font-semibold text-gray-900">2</div>
+                <div className="text-2xl font-semibold text-gray-900">{reportCount}</div>
                 <div className="text-xs text-gray-500">Lost Items</div>
               </div>
               <div>

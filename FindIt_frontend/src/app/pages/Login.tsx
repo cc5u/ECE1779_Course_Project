@@ -4,18 +4,35 @@ import { MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { formatApiError, login } from "../lib/api";
+import { saveSession } from "../lib/auth";
 
 export default function Login() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false); //useState to toggle password visibility
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Perform login logic here (e.g., API call)
-        // For demonstration, we'll just navigate to the home page
-        navigate("/home");
+        setIsSubmitting(true);
+        setErrorMessage("");
+
+        try {
+            const session = await login({
+                uoftEmail: email,
+                password,
+            });
+
+            saveSession(session);
+            navigate("/home");
+        } catch (error) {
+            setErrorMessage(formatApiError(error));
+        } finally {
+            setIsSubmitting(false);
+        }
     }; // handleSubmit function to handle form submission and navigate to home page after login
 
     return (
@@ -34,6 +51,11 @@ export default function Login() {
                 {/* Login Form */}
                 <div className="bg-white rounded-2x1 shdaow-lg p-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {errorMessage ? (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {errorMessage}
+                            </div>
+                        ) : null}
                         {/* Email Input */} {/* Form with email and password inputs */}
                         <div className="space-y-2">
                             <Label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</Label>
@@ -94,8 +116,12 @@ export default function Login() {
                         </div>
 
                         {/* Submit Button */}
-                        <Button type="submit" className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm">
-                            Sign in
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            {isSubmitting ? "Signing in..." : "Sign in"}
                         </Button>
                     </form>
 

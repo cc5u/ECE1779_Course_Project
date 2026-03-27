@@ -4,6 +4,8 @@ import { MapPin, Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { formatApiError, register } from '../lib/api';
+import { saveSession } from '../lib/auth';
 
 export default function Register() {
     const navigate = useNavigate();
@@ -16,21 +18,36 @@ export default function Register() {
         password: '',
         confirmPassword: '',
     }); // State to hold form data
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMessage('');
     
         // Basic validation
         if (formData.password !== formData.confirmPassword) {
-            alert('Passwords do not match');
+            setErrorMessage('Passwords do not match');
             return;
         }
-    
-        // ***Mock registration - in real app, this would create account with backend***
-        console.log('Registration attempt:', formData);
-        // Redirect to home after "registration"
-        navigate('/home');
-    }; // handel form submission *** still needs to be implemented with backend***
+
+        setIsSubmitting(true);
+
+        try {
+            const session = await register({
+                displayName: formData.fullName,
+                uoftEmail: formData.email,
+                password: formData.password,
+            });
+
+            saveSession(session);
+            navigate('/home');
+        } catch (error) {
+            setErrorMessage(formatApiError(error));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({
@@ -56,6 +73,11 @@ export default function Register() {
                 {/* Register Card */}
                 <div className="bg-white rounded-2xl shadow-lg p-8">
                     <form onSubmit={handleSubmit} className="space-y-5">
+                        {errorMessage ? (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {errorMessage}
+                            </div>
+                        ) : null}
                         {/* Full Name Field */}
                         <div className="space-y-2">
                             <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">
@@ -203,9 +225,10 @@ export default function Register() {
                         {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm"
+                            disabled={isSubmitting}
+                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            Create account
+                            {isSubmitting ? 'Creating account...' : 'Create account'}
                         </Button>
                     </form>
 

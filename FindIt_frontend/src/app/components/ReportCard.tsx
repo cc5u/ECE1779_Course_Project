@@ -6,11 +6,16 @@ interface ReportCardProps {
   time: string;
   status: 'Lost' | 'Possibly Found';
   imageUrl: string;
+  onClick?: () => void;
 }
 
-export function ReportCard({ itemName, location, time, status, imageUrl }: ReportCardProps) {
+export function ReportCard({ itemName, location, time, status, imageUrl, onClick }: ReportCardProps) {
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+    >
       <div className="flex gap-3">
         <div className="flex-shrink-0">
           <ImageWithFallback
@@ -38,7 +43,7 @@ export function ReportCard({ itemName, location, time, status, imageUrl }: Repor
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 

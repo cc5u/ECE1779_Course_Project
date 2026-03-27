@@ -1,61 +1,63 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Link } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { ReportCard } from '../components/ReportCard';
+import { UploadFoundItemModal, type FoundItemSubmission } from '../components/UploadFoundItemModal';
+import {
+    createSighting,
+    formatApiError,
+    getMapReports,
+    getReports,
+    uploadSightingImages,
+    type LostReport,
+    type MapReport,
+} from '../lib/api';
 
 export function Home() {
+    const [lostReports, setLostReports] = useState<LostReport[]>([]);
+    const [mapPins, setMapPins] = useState<MapReport[]>([]);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedReport, setSelectedReport] = useState<LostReport | null>(null);
+    const [isFoundModalOpen, setIsFoundModalOpen] = useState(false);
+    const [isSubmittingFoundReport, setIsSubmittingFoundReport] = useState(false);
+    const [foundReportError, setFoundReportError] = useState('');
+
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
-
-    const lostReports =[
-        {
-        itemName: 'Lost Black Wallet',
-        location: 'Downtown Toronto',
-        time: '2 hours ago',
-        status: 'Lost' as const,
-        imageUrl: 'https://images.unsplash.com/photo-1703355685552-885762b8c9b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibGFjayUyMGxlYXRoZXIlMjB3YWxsZXR8ZW58MXx8fHwxNzcyMzkyODk0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-        },
-    ]; // This will eventually be fetched from the backend
-
-    const mapPins = [
-        {
-            id: 1,
-            position: [-79.3992, 43.6645] as [number, number],
-            label: 'Robarts Library',
-            color: '#d97706',
-        },
-        {
-            id: 2,
-            position: [-79.3984, 43.6596] as [number, number],
-            label: 'Bahen Centre',
-            color: '#0f766e',
-        },
-        {
-            id: 3,
-            position: [-79.4014, 43.6629] as [number, number],
-            label: 'Sidney Smith Hall',
-            color: '#2563eb',
-        },
-        {
-            id: 4,
-            position: [-79.3948, 43.6677] as [number, number],
-            label: 'Royal Ontario Museum',
-            color: '#7c3aed',
-        },
-        {
-            id: 5,
-            position: [-79.3929, 43.6627] as [number, number],
-            label: 'Union Station',
-            color: '#dc2626',
-        },
-    ]; // This will eventually be fetched from the backend
+    const mapRef = useRef<maplibregl.Map | null>(null);
 
     useEffect(() => {
-        if (!mapContainerRef.current) {
-            return undefined;
+        async function loadHomeData() {
+            await refreshHomeData();
         }
+
+        void loadHomeData();
+    }, []);
+
+    async function refreshHomeData() {
+            setIsLoading(true);
+            setErrorMessage('');
+
+            try {
+                const [{ reports }, mapReports] = await Promise.all([
+                    getReports(),
+                    getMapReports(),
+                ]);
+
+                setLostReports(reports);
+                setMapPins(mapReports);
+            } catch (error) {
+                setErrorMessage(formatApiError(error));
+            } finally {
+                setIsLoading(false);
+            }
+    }
+
+    useEffect(() => {
+        if (!mapContainerRef.current) return;
 
         const map = new maplibregl.Map({
             container: mapContainerRef.current,
@@ -68,133 +70,162 @@ export function Home() {
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
         map.on('load', () => {
-            const firstLabelLayer = map.getStyle().layers?.find((layer) => layer.type === 'symbol')?.id;
+            const layers = map.getStyle().layers;
+            const firstLabelLayer = layers?.find((l) => l.type === 'symbol')?.id;
 
-            map.addLayer(
-                {
-                    id: '3d-buildings',
-                    type: 'fill-extrusion',
-                    source: 'openmaptiles',
-                    'source-layer': 'building',
-                    minzoom: 13,
-                    paint: {
-                        'fill-extrusion-color': [
-                            'interpolate',
-                            ['linear'],
-                            ['coalesce', ['get', 'render_height'], ['get', 'height'], 15],
-                            0, '#d9d2c3',
-                            20, '#c9bea8',
-                            60, '#b39b7a',
-                        ],
-                        'fill-extrusion-height': [
-                            'coalesce',
-                            ['get', 'render_height'],
-                            ['get', 'height'],
-                            15,
-                        ],
-                        'fill-extrusion-base': [
-                            'coalesce',
-                            ['get', 'render_min_height'],
-                            ['get', 'min_height'],
-                            0,
-                        ],
-                        'fill-extrusion-opacity': 0.68,
-                    },
+            map.addLayer({
+                id: '3d-buildings',
+                type: 'fill-extrusion',
+                source: 'openmaptiles',
+                'source-layer': 'building',
+                paint: {
+                    'fill-extrusion-color': '#d9d2c3',
+                    'fill-extrusion-height': ['get', 'render_height'],
+                    'fill-extrusion-base': ['get', 'render_min_height'],
+                    'fill-extrusion-opacity': 0.68,
                 },
-                firstLabelLayer,
-            );
-
-            const bounds = new maplibregl.LngLatBounds();
-            mapPins.forEach((pin) => bounds.extend(pin.position));
-            if (!bounds.isEmpty()) {
-                map.fitBounds(bounds, { padding: 80, maxZoom: 16.2, duration: 0 });
-            }
+            }, firstLabelLayer);
         });
 
-        const markers = mapPins.map((pin) => {
-            const markerElement = document.createElement('button');
-            markerElement.type = 'button';
-            markerElement.setAttribute('aria-label', pin.label);
-            markerElement.style.width = '18px';
-            markerElement.style.height = '18px';
-            markerElement.style.borderRadius = '9999px';
-            markerElement.style.background = pin.color;
-            markerElement.style.border = '3px solid white';
-            markerElement.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.24)';
-            markerElement.style.cursor = 'pointer';
-
-            return new maplibregl.Marker({ element: markerElement, anchor: 'center' })
-                .setLngLat(pin.position)
-                .setPopup(
-                    new maplibregl.Popup({ offset: 18 }).setHTML(
-                        `<div style="font-weight:600;color:#111827;">${pin.label}</div>`,
-                    ),
-                )
-                .addTo(map);
-        });
-
-        return () => {
-            markers.forEach((marker) => marker.remove());
-            map.remove();
-        };
+        mapRef.current = map;
+        return () => map.remove();
     }, []);
+    useEffect(() => {
+        if (!mapRef.current || mapPins.length === 0) return;
 
+        const currentMarkers: maplibregl.Marker[] = [];
+
+        mapPins.forEach((pin) => {
+            const el = document.createElement('div');
+            el.className = 'custom-marker';
+            el.style.width = '18px';
+            el.style.height = '18px';
+            el.style.borderRadius = '50%';
+            el.style.background = pin.status === 'possibly_found' ? '#22c55e' : '#ef4444';
+            el.style.border = '3px solid white';
+            el.style.cursor = 'pointer';
+
+            const marker = new maplibregl.Marker({ element: el })
+                .setLngLat([pin.longitude, pin.latitude])
+                .setPopup(
+                    new maplibregl.Popup({ offset: 25 }).setHTML(`
+                        <div class="p-2">
+                            <p class="font-bold">${pin.itemName}</p>
+                            <button id="btn-${pin.id}" class="mt-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">Report Found</button>
+                        </div>
+                    `)
+                )
+                .addTo(mapRef.current!);
+            
+            marker.getPopup().on('open', () => {
+                document.getElementById(`btn-${pin.id}`)?.addEventListener('click', () => {
+                    const report = lostReports.find(r => r.id === pin.id);
+                    if (report) openFoundModal(report);
+                });
+            });
+
+            currentMarkers.push(marker);
+        });
+
+        return () => currentMarkers.forEach(m => m.remove());
+    }, [mapPins, lostReports]);
+
+    const openFoundModal = (report: LostReport) => {
+        setSelectedReport(report);
+        setIsFoundModalOpen(true);
+    };
+
+    const closeFoundModal = () => {
+        if (!isSubmittingFoundReport) {
+            setIsFoundModalOpen(false);
+            setSelectedReport(null);
+        }
+    };
+
+    const handleFoundSubmit = async (data: FoundItemSubmission) => {
+        if (!selectedReport) return;
+        setIsSubmittingFoundReport(true);
+        try {
+            const note = `Found at: ${data.address}\nDescription: ${data.description}`;
+            const sighting = await createSighting(selectedReport.id, { note });
+            await uploadSightingImages(sighting.id, data.files);
+            await refreshHomeData();
+            closeFoundModal();
+        } catch (error) {
+            setFoundReportError(formatApiError(error));
+        } finally {
+            setIsSubmittingFoundReport(false);
+        }
+    };
     return (
         <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        
-        <main className="pt-16">
-            <div className="max-w-[1440px] mx-auto flex h-[calc(100vh-4rem)]">
-            {/* Map Area - 70% width */}
-            <div className="relative w-[70%] bg-white border-r border-gray-200">
-                {/* Hero Message Overlay */}
-                <div className="absolute top-8 left-8 z-10 bg-white/95 backdrop-blur-sm rounded-xl p-6 shadow-lg max-w-md">
-                <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-                    Help people find their lost belongings
-                </h1>
-                <p className="text-gray-600">
-                    Report lost items or help others by marking found items.
-                </p>
-                </div>
+            <Navbar />
+            <main className="pt-16">
+                <div className="max-w-[1440px] mx-auto flex h-[calc(100vh-4rem)]">
+                    <div className="relative w-[70%] bg-white border-r border-gray-200">
+                        
+                        <div ref={mapContainerRef} className="h-full w-full relative z-0" />
+                        
+                        <Link to="/report" className="absolute bottom-8 right-8 bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-blue-700 transition-all">
+                            <Plus className="w-6 h-6" />
+                        </Link>
+                    </div>
 
-                <div ref={mapContainerRef} className="h-full w-full relative z-0" />
-
-                {/* Floating Action Button */}
-                <Link 
-                to="/report"
-                className="absolute bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all w-16 h-16 flex items-center justify-center group"
-                >
-                <Plus className="w-6 h-6" />
-                <span className="absolute right-full mr-3 bg-gray-900 text-white text-sm px-3 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Report
-                </span>
-                </Link>
-            </div>
-
-            {/* Right Sidebar - 30% width */}
-            <div className="w-[30%] bg-white overflow-y-auto">
-                <div className="p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                    Recent Lost Reports
-                </h2>
-                
-                <div className="space-y-4">
-                    {lostReports.map((report, index) => (
-                    <Link to={`/report/${index + 1}`} key={index}>
-                        <ReportCard
-                        itemName={report.itemName}
-                        location={report.location}
-                        time={report.time}
-                        status={report.status}
-                        imageUrl={report.imageUrl}
-                        />
-                    </Link>
-                    ))}
+                    <div className="w-[30%] bg-white overflow-y-auto p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Lost Reports</h2>
+                        {errorMessage && <div className="text-red-600 mb-4">{errorMessage}</div>}
+                        {isLoading ? <p>Loading...</p> : (
+                            <div className="space-y-4">
+                                {lostReports.map((report) => (
+                                    <ReportCard
+                                        key={report.id}
+                                        itemName={report.itemName}
+                                        location={report.lostLocationText || 'Location unavailable'}
+                                        time={formatRelativeTime(report.createdAt)}
+                                        status={report.status === 'possibly_found' ? 'Possibly Found' : 'Lost'}
+                                        imageUrl={report.images?.[0]?.publicUrl || ''}
+                                        onClick={() => openFoundModal(report)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-                </div>
-            </div>
-            </div>
-        </main>
+            </main>
+            <UploadFoundItemModal
+                isOpen={isFoundModalOpen}
+                itemName={selectedReport?.itemName || 'Lost item'}
+                isSubmitting={isSubmittingFoundReport}
+                errorMessage={foundReportError}
+                onClose={closeFoundModal}
+                onSubmit={handleFoundSubmit}
+            />
         </div>
     );
-    }   
+}
+
+
+function formatRelativeTime(timestamp: string) {
+    const value = new Date(timestamp).getTime();
+    const diffMs = Date.now() - value;
+
+    if (Number.isNaN(value) || diffMs < 0) {
+        return 'Just now';
+    }
+
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) {
+        return 'Just now';
+    }
+    if (minutes < 60) {
+        return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+}
