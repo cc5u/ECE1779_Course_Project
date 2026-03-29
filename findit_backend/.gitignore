@@ -3,8 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.stack.example
 *.log
 .DS_Store
-docker-stack.yml
 *.secrets.env
 secrets/

@@ -1,0 +1,72 @@
+# Swarm deployment file for a single DigitalOcean Droplet.
+# Copy `.env.stack.example` to `.env.stack`, fill in the real values on the manager node,
+# then deploy with `./scripts/deploy-stack.sh`.
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-findit}
+    volumes:
+      - type: bind
+        source: ${POSTGRES_DATA_DIR:?POSTGRES_DATA_DIR is required}
+        target: /var/lib/postgresql/data
+    networks:
+      - findit
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-findit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    ports:
+      - target: 3000
+        published: ${PUBLISHED_PORT:-3000}
+        protocol: tcp
+        mode: ingress
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      PORT: "${PORT:-3000}"
+      NODE_ENV: ${NODE_ENV:-production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required}
+      BASE_URL: ${BASE_URL:?BASE_URL is required}
+      DO_SPACES_ENDPOINT: ${DO_SPACES_ENDPOINT:-}
+      DO_SPACES_BUCKET: ${DO_SPACES_BUCKET:-}
+      DO_SPACES_KEY: ${DO_SPACES_KEY:-}
+      DO_SPACES_SECRET: ${DO_SPACES_SECRET:-}
+      DO_SPACES_REGION: ${DO_SPACES_REGION:-}
+      DO_SPACES_CDN_ENDPOINT: ${DO_SPACES_CDN_ENDPOINT:-}
+    networks:
+      - findit
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-1}
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+
+networks:
+  findit:
+    driver: overlay
