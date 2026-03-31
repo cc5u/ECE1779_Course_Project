@@ -7,7 +7,12 @@ import http from "http";
 import path from "path";
 import prisma from "./prisma/client";
 import { errorHandler } from "./middleware/errorHandler";
-import { setupWebSocket } from "./utils/websocket";
+import {
+  closeWebSocketPubSub,
+  getRealtimeTransportMode,
+  initializeWebSocketPubSub,
+  setupWebSocket,
+} from "./utils/websocket";
 import { getImageStorageMode } from "./services/storageService";
 
 // Route imports
@@ -85,8 +90,10 @@ async function start() {
   try {
     // Test database connection
     await prisma.$connect();
+    await initializeWebSocketPubSub();
     console.log("Database connected successfully");
     console.log(`Image storage mode: ${getImageStorageMode()}`);
+    console.log(`Realtime transport mode: ${getRealtimeTransportMode()}`);
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`\n🚀 Server running on http://localhost:${PORT}`);
@@ -124,6 +131,7 @@ async function start() {
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received. Shutting down...");
   server.close();
+  await closeWebSocketPubSub();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -131,6 +139,7 @@ process.on("SIGTERM", async () => {
 process.on("SIGINT", async () => {
   console.log("\nSIGINT received. Shutting down...");
   server.close();
+  await closeWebSocketPubSub();
   await prisma.$disconnect();
   process.exit(0);
 });

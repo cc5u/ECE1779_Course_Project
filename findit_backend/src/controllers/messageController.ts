@@ -2,20 +2,13 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "../types";
 import * as messageService from "../services/messageService";
 import { createMessageSchema } from "../utils/validation";
-import { broadcastToReport, sendToUser } from "../utils/websocket";
+import { sendToUser } from "../utils/websocket";
 
 export async function send(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const input = createMessageSchema.parse(req.body);
     const reportId = String(req.params.reportId);
     const message = await messageService.sendMessage(reportId, req.user!.id, input);
-
-    // Broadcast to report subscribers
-    broadcastToReport(reportId, {
-      type: "new_message",
-      reportId,
-      data: message,
-    });
 
     // Also notify the receiver directly
     sendToUser(input.receiverId, {

@@ -28,6 +28,24 @@ services:
         condition: on-failure
         delay: 10s
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - findit
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
   backend:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     ports:
@@ -49,6 +67,7 @@ services:
       DO_SPACES_SECRET: ${DO_SPACES_SECRET:-}
       DO_SPACES_REGION: ${DO_SPACES_REGION:-}
       DO_SPACES_CDN_ENDPOINT: ${DO_SPACES_CDN_ENDPOINT:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     networks:
       - findit
     healthcheck:

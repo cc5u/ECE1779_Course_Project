@@ -2,20 +2,12 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "../types";
 import * as sightingService from "../services/sightingService";
 import { createSightingSchema } from "../utils/validation";
-import { broadcastToReport } from "../utils/websocket";
 
 export async function create(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const input = createSightingSchema.parse(req.body);
     const reportId = String(req.params.reportId);
     const sighting = await sightingService.createSighting(reportId, req.user!.id, input);
-
-    // Broadcast real-time update to subscribers
-    broadcastToReport(reportId, {
-      type: "new_sighting",
-      reportId,
-      data: sighting,
-    });
 
     res.status(201).json({ success: true, data: sighting });
   } catch (err) {
