@@ -80,7 +80,12 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           BACKEND_IMAGE: ${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
         run: |
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+          ssh \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            -o TCPKeepAlive=yes \
+            -p "$SSH_PORT" \
+            "$SSH_USER@$SSH_HOST" \
             "BACKEND_IMAGE='$BACKEND_IMAGE' REMOTE_REPO_DIR='$REMOTE_REPO_DIR' REMOTE_ENV_FILE='$REMOTE_ENV_FILE' bash -se" <<'EOF'
           set -euo pipefail
 
@@ -101,7 +106,7 @@ jobs:
           ENV_FILE="$REMOTE_ENV_FILE" ./scripts/deploy-stack.sh
 
           for attempt in $(seq 1 30); do
-            current_image=$(docker service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' findit_backend)
+            current_image=$(docker service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' findit_backend 2>/dev/null || true)
             case "$current_image" in
               "$BACKEND_IMAGE"|"$BACKEND_IMAGE"@*)
                 break
@@ -118,7 +123,7 @@ jobs:
           done
 
           for attempt in $(seq 1 60); do
-            replicas=$(docker service ls --filter name=findit_backend --format '{{.Replicas}}')
+            replicas=$(docker service ls --filter name=findit_backend --format '{{.Replicas}}' 2>/dev/null || true)
             if [ "$replicas" = "1/1" ] && curl --fail --silent --show-error http://localhost:3000/api/health >/dev/null; then
               break
             fi
