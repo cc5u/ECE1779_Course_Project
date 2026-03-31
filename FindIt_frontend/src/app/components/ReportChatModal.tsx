@@ -333,21 +333,22 @@ export function ReportChatModal({
     return null;
   }
 
+  const isRealtimeOnline = isBrowserOnline && connectionState === "connected";
   const connectionLabel = !isBrowserOnline
     ? "Offline"
-    : connectionState === "connected"
-      ? "Connected"
-      : connectionState === "connecting"
-        ? "Connecting"
-        : connectionState === "disconnected"
-          ? "Reconnecting"
+    : connectionState === "connecting"
+      ? "Connecting"
+      : connectionState === "disconnected"
+        ? "Reconnecting"
+        : isRealtimeOnline
+          ? "Online"
           : "Offline";
   const participantStatus =
-    participantPresence !== "unknown"
-      ? participantPresence
-      : connectionState === "connected" && isBrowserOnline
-        ? "online"
-        : "offline";
+    !isRealtimeOnline
+      ? "offline"
+      : participantPresence !== "unknown"
+        ? participantPresence
+        : "online";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
@@ -376,7 +377,7 @@ export function ReportChatModal({
                 {participantStatus === "online" ? "Online" : "Offline"}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                {connectionState === "connected" && isBrowserOnline ? (
+                {isRealtimeOnline ? (
                   <Wifi className="h-4 w-4 text-emerald-600" />
                 ) : (
                   <WifiOff className="h-4 w-4 text-amber-600" />
