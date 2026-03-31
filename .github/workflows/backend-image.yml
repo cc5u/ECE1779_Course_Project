@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - backend_dev
     paths:
       - "findit_backend/**"
       - "FindIt_frontend/**"
@@ -53,7 +52,7 @@ jobs:
   deploy-staging:
     name: deploy-staging
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/backend_dev'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -93,11 +92,11 @@ jobs:
 
           cd "$REMOTE_REPO_DIR"
           git fetch origin
-          git checkout backend_dev
-          git pull --ff-only origin backend_dev
+          git checkout main
+          git pull --ff-only origin main
 
           SKIP_GIT_SYNC=1 \
-          DEPLOY_BRANCH=backend_dev \
+          DEPLOY_BRANCH=main \
           REMOTE_ENV_FILE="$REMOTE_ENV_FILE" \
           BACKEND_IMAGE="$BACKEND_IMAGE" \
           ./deploy/manager/deploy-app.sh

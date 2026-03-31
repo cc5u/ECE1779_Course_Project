@@ -52,15 +52,12 @@
 
 ## GitHub Actions CD
 
-- `backend_dev` push:
+- `main` push:
   - builds and pushes the backend image
   - deploys the backend stack
   - builds and publishes the frontend static files
   - installs the Nginx config and reloads Nginx
   - uses the `staging` GitHub Environment
-- `main` push:
-  - builds and pushes the backend image
-  - does not deploy automatically
 
 Create a `staging` GitHub Environment with:
 
