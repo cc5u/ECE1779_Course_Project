@@ -123,8 +123,8 @@ export interface LostReport {
   description: string;
   lostTime: string;
   lostLocationText: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   status: "lost" | "possibly_found" | "found" | "archived";
   createdAt: string;
   updatedAt: string;
@@ -171,8 +171,8 @@ export interface MapReport {
   id: string;
   itemName: string;
   lostLocationText: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   status: "lost" | "possibly_found" | "found" | "archived";
   createdAt: string;
   owner: {
@@ -191,6 +191,8 @@ type RawImage = {
   objectKey?: string | null;
   displayOrder?: number;
 };
+
+type CoordinateValue = number | string | null | undefined;
 
 export interface CreateReportPayload {
   itemName: string;
@@ -286,9 +288,24 @@ function normalizeImage(image: RawImage): ReportImage {
   };
 }
 
+function normalizeCoordinate(value: CoordinateValue) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function normalizeLostReport(report: RawLostReport): LostReport {
   return {
     ...report,
+    latitude: normalizeCoordinate(report.latitude),
+    longitude: normalizeCoordinate(report.longitude),
     images: report.images?.map(normalizeImage) ?? [],
   };
 }
@@ -296,6 +313,8 @@ function normalizeLostReport(report: RawLostReport): LostReport {
 function normalizeMapReport(report: RawMapReport): MapReport {
   return {
     ...report,
+    latitude: normalizeCoordinate(report.latitude),
+    longitude: normalizeCoordinate(report.longitude),
     images: report.images?.map(normalizeImage) ?? [],
   };
 }

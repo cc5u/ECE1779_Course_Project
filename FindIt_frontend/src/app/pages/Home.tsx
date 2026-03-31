@@ -217,6 +217,10 @@ export function Home() {
         const currentMarkers: maplibregl.Marker[] = [];
 
         mapPins.forEach((pin) => {
+            if (pin.latitude === null || pin.longitude === null) {
+                return;
+            }
+
             const matchingReport = lostReports.find((report) => report.id === pin.id);
             const canReportFound =
                 Boolean(matchingReport) &&
