@@ -10,6 +10,7 @@ import { UploadFoundItemModal, type FoundItemSubmission } from '../components/Up
 import {
     createSighting,
     formatApiError,
+    getAuthenticatedWebSocketUrl,
     getMapReports,
     getReports,
     uploadSightingImages,
@@ -41,8 +42,10 @@ export function Home() {
         void loadHomeData();
     }, []);
 
-    async function refreshHomeData() {
-        setIsLoading(true);
+    async function refreshHomeData(showLoading = true) {
+        if (showLoading) {
+            setIsLoading(true);
+        }
         setErrorMessage('');
 
         try {
@@ -56,9 +59,44 @@ export function Home() {
         } catch (error) {
             setErrorMessage(formatApiError(error));
         } finally {
-            setIsLoading(false);
+            if (showLoading) {
+                setIsLoading(false);
+            }
         }
     }
+
+    useEffect(() => {
+        const socket = new WebSocket(getAuthenticatedWebSocketUrl(session?.token));
+
+        socket.onopen = () => {
+            socket.send(JSON.stringify({ type: 'subscribe', channel: 'reports' }));
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as {
+                    type?: string;
+                };
+
+                if (
+                    payload.type === 'report_created' ||
+                    payload.type === 'report_updated' ||
+                    payload.type === 'report_deleted'
+                ) {
+                    void refreshHomeData(false);
+                }
+            } catch {
+                // Ignore malformed websocket events.
+            }
+        };
+
+        return () => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'unsubscribe', channel: 'reports' }));
+            }
+            socket.close();
+        };
+    }, [session?.token]);
 
     const openFoundModal = (report: LostReport) => {
         if (report.owner?.id === currentUserId || report.status === 'found' || report.status === 'archived') {

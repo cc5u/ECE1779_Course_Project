@@ -87,10 +87,14 @@ export function ReportChatModal({
   const [connectionState, setConnectionState] = useState<"idle" | "connecting" | "connected" | "disconnected">("idle");
   const [isBrowserOnline, setIsBrowserOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
   const [participantPresence, setParticipantPresence] = useState<"online" | "offline" | "unknown">("unknown");
+  const [isParticipantTyping, setIsParticipantTyping] = useState(false);
   const [liveStatusNote, setLiveStatusNote] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
+  const localTypingTimerRef = useRef<number | null>(null);
+  const participantTypingTimerRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const isLocallyTypingRef = useRef(false);
 
   const resolvedParticipant = participant ?? inferConversationParticipant(messages, currentUserId);
   const participantId = resolvedParticipant?.id;
@@ -108,6 +112,7 @@ export function ReportChatModal({
       setMessages([]);
       setDraft("");
       setErrorMessage("");
+      setIsParticipantTyping(false);
       setLiveStatusNote("");
       setConnectionState("idle");
     }
@@ -133,8 +138,59 @@ export function ReportChatModal({
   useEffect(() => {
     if (!participantId) {
       setParticipantPresence("unknown");
+      setIsParticipantTyping(false);
     }
   }, [participantId]);
+
+  const stopLocalTyping = () => {
+    if (localTypingTimerRef.current !== null) {
+      window.clearTimeout(localTypingTimerRef.current);
+      localTypingTimerRef.current = null;
+    }
+
+    if (!isLocallyTypingRef.current || !reportId) {
+      return;
+    }
+
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "typing_stop", reportId }));
+    }
+
+    isLocallyTypingRef.current = false;
+  };
+
+  const scheduleLocalTypingStop = () => {
+    if (localTypingTimerRef.current !== null) {
+      window.clearTimeout(localTypingTimerRef.current);
+    }
+
+    localTypingTimerRef.current = window.setTimeout(() => {
+      stopLocalTyping();
+    }, 1500);
+  };
+
+  const handleDraftChange = (value: string) => {
+    setDraft(value);
+
+    const trimmedValue = value.trim();
+    const socket = socketRef.current;
+    if (!reportId || socket?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    if (!trimmedValue) {
+      stopLocalTyping();
+      return;
+    }
+
+    if (!isLocallyTypingRef.current) {
+      socket.send(JSON.stringify({ type: "typing_start", reportId }));
+      isLocallyTypingRef.current = true;
+    }
+
+    scheduleLocalTypingStop();
+  };
 
   useEffect(() => {
     if (!isOpen || !reportId || !currentUserId) {
@@ -243,8 +299,45 @@ export function ReportChatModal({
             (payload.data && typeof payload.data === "object" && "reportId" in payload.data
               ? String((payload.data as { reportId?: string }).reportId ?? "")
               : "");
+
+          if (
+            statusReportId === reportId &&
+            payload.type === "typing_start" &&
+            typeof (payload as { userId?: unknown }).userId === "string" &&
+            (payload as { userId: string }).userId === participantId
+          ) {
+            setIsParticipantTyping(true);
+
+            if (participantTypingTimerRef.current !== null) {
+              window.clearTimeout(participantTypingTimerRef.current);
+            }
+
+            participantTypingTimerRef.current = window.setTimeout(() => {
+              setIsParticipantTyping(false);
+            }, 2500);
+            return;
+          }
+
+          if (
+            statusReportId === reportId &&
+            payload.type === "typing_stop" &&
+            typeof (payload as { userId?: unknown }).userId === "string" &&
+            (payload as { userId: string }).userId === participantId
+          ) {
+            if (participantTypingTimerRef.current !== null) {
+              window.clearTimeout(participantTypingTimerRef.current);
+              participantTypingTimerRef.current = null;
+            }
+
+            setIsParticipantTyping(false);
+            return;
+          }
+
           const nextStatus =
-            payload.status ??
+            (typeof payload.status === "string" ? payload.status : undefined) ??
+            (typeof (payload as { newStatus?: unknown }).newStatus === "string"
+              ? (payload as { newStatus: string }).newStatus
+              : undefined) ??
             (payload.data && typeof payload.data === "object" && "status" in payload.data
               ? String((payload.data as { status?: string }).status ?? "")
               : "");
@@ -278,9 +371,14 @@ export function ReportChatModal({
 
     return () => {
       cancelled = true;
+      stopLocalTyping();
 
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
+      }
+      if (participantTypingTimerRef.current !== null) {
+        window.clearTimeout(participantTypingTimerRef.current);
+        participantTypingTimerRef.current = null;
       }
 
       const socket = socketRef.current;
@@ -294,7 +392,7 @@ export function ReportChatModal({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [visibleMessages]);
+  }, [isParticipantTyping, visibleMessages]);
 
   const handleSend = async () => {
     if (!reportId || !participantId) {
@@ -309,6 +407,7 @@ export function ReportChatModal({
 
     setIsSending(true);
     setErrorMessage("");
+    stopLocalTyping();
 
     try {
       const message = await sendReportMessage(reportId, {
@@ -424,6 +523,20 @@ export function ReportChatModal({
               </p>
             </div>
           )}
+          {isParticipantTyping && resolvedParticipant ? (
+            <div className="mb-4 flex justify-start">
+              <div className="flex max-w-[70%] flex-col items-start">
+                <div className="rounded-lg rounded-bl-none bg-gray-100 px-4 py-3 text-gray-900">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.2s]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.1s]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
+                  </div>
+                </div>
+                <span className="mt-1 text-xs text-gray-500">{resolvedParticipant.displayName} is typing...</span>
+              </div>
+            </div>
+          ) : null}
           <div ref={messagesEndRef} />
         </div>
 
@@ -432,7 +545,8 @@ export function ReportChatModal({
             <textarea
               rows={3}
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => handleDraftChange(event.target.value)}
+              onBlur={() => stopLocalTyping()}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
