@@ -5,6 +5,7 @@ import {
   formatApiError,
   getAuthenticatedWebSocketUrl,
   getReportMessages,
+  parsePresenceUpdate,
   parseReportMessage,
   sendReportMessage,
   type ReportMessage,
@@ -43,6 +44,31 @@ function dedupeMessages(messages: ReportMessage[]) {
   });
 }
 
+function inferConversationParticipant(
+  messages: ReportMessage[],
+  currentUserId?: string | null,
+): ReportOwner | undefined {
+  if (!currentUserId) {
+    return undefined;
+  }
+
+  const orderedMessages = [...messages].sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
+
+  for (const message of orderedMessages) {
+    if (message.senderId === currentUserId) {
+      return message.receiver ?? { id: message.receiverId, displayName: "Conversation participant" };
+    }
+
+    if (message.receiverId === currentUserId) {
+      return message.sender ?? { id: message.senderId, displayName: "Conversation participant" };
+    }
+  }
+
+  return undefined;
+}
+
 export function ReportChatModal({
   isOpen,
   reportId,
@@ -59,12 +85,15 @@ export function ReportChatModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [connectionState, setConnectionState] = useState<"idle" | "connecting" | "connected" | "disconnected">("idle");
+  const [isBrowserOnline, setIsBrowserOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const [participantPresence, setParticipantPresence] = useState<"online" | "offline" | "unknown">("unknown");
   const [liveStatusNote, setLiveStatusNote] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const participantId = participant?.id;
+  const resolvedParticipant = participant ?? inferConversationParticipant(messages, currentUserId);
+  const participantId = resolvedParticipant?.id;
   const canMessage = Boolean(isOpen && reportId && participantId && currentUserId && authToken);
   const visibleMessages = useMemo(
     () =>
@@ -83,6 +112,29 @@ export function ReportChatModal({
       setConnectionState("idle");
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleOnline = () => setIsBrowserOnline(true);
+    const handleOffline = () => setIsBrowserOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!participantId) {
+      setParticipantPresence("unknown");
+    }
+  }, [participantId]);
 
   useEffect(() => {
     if (!isOpen || !reportId || !currentUserId) {
@@ -172,6 +224,16 @@ export function ReportChatModal({
                 (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
               ),
             );
+            return;
+          }
+
+          const presenceUpdate =
+            parsePresenceUpdate(payload) ??
+            parsePresenceUpdate(payload.data) ??
+            parsePresenceUpdate(payload.message);
+
+          if (presenceUpdate && presenceUpdate.userId === participantId) {
+            setParticipantPresence(presenceUpdate.online ? "online" : "offline");
             return;
           }
 
@@ -271,14 +333,21 @@ export function ReportChatModal({
     return null;
   }
 
-  const connectionLabel =
-    connectionState === "connected"
-      ? "Live"
+  const connectionLabel = !isBrowserOnline
+    ? "Offline"
+    : connectionState === "connected"
+      ? "Connected"
       : connectionState === "connecting"
         ? "Connecting"
         : connectionState === "disconnected"
           ? "Reconnecting"
           : "Offline";
+  const participantStatus =
+    participantPresence !== "unknown"
+      ? participantPresence
+      : connectionState === "connected" && isBrowserOnline
+        ? "online"
+        : "offline";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
@@ -297,9 +366,21 @@ export function ReportChatModal({
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-              <span>{participant ? `Chatting with ${participant.displayName}` : "Choose a participant to start chatting."}</span>
+              <span>{resolvedParticipant ? `Chatting with ${resolvedParticipant.displayName}` : "Choose a participant to start chatting."}</span>
               <span className="inline-flex items-center gap-1.5">
-                {connectionState === "connected" ? <Wifi className="h-4 w-4 text-emerald-600" /> : <WifiOff className="h-4 w-4 text-amber-600" />}
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    participantStatus === "online" ? "bg-emerald-500" : "bg-gray-400"
+                  }`}
+                />
+                {participantStatus === "online" ? "Online" : "Offline"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                {connectionState === "connected" && isBrowserOnline ? (
+                  <Wifi className="h-4 w-4 text-emerald-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-amber-600" />
+                )}
                 {connectionLabel}
               </span>
             </div>
@@ -357,7 +438,7 @@ export function ReportChatModal({
                   void handleSend();
                 }
               }}
-              placeholder={participant ? `Message ${participant.displayName}` : "Select a conversation to start messaging"}
+              placeholder={resolvedParticipant ? `Message ${resolvedParticipant.displayName}` : "Select a conversation to start messaging"}
               disabled={!participantId || isSending}
               className="min-h-[88px] flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
             />
