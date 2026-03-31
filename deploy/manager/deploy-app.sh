@@ -82,6 +82,11 @@ for attempt in $(seq 1 60); do
 done
 
 cd "$REPO_ROOT/FindIt_frontend"
+# Production uses same-origin API and WebSocket defaults, so stale Vite env
+# overrides from previous manual builds must not leak into the published bundle.
+rm -f .env .env.local .env.production .env.production.local
+# npm ci can fail to clean long-lived frontend node_modules trees on the server.
+rm -rf node_modules dist
 npm ci
 npm run build
 
