@@ -99,5 +99,5 @@ jobs:
           DEPLOY_BRANCH=main \
           REMOTE_ENV_FILE="$REMOTE_ENV_FILE" \
           BACKEND_IMAGE="$BACKEND_IMAGE" \
-          ./deploy/manager/deploy-app.sh
+          bash ./deploy/manager/deploy-app.sh
           EOF
