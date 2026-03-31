@@ -1,9 +1,25 @@
 import { clearSession, getStoredSession, type AuthSession, type AuthUser } from "./auth";
 
-const DEFAULT_API_BASE_URL = "http://167.99.181.204:3000/api";
+function getDefaultApiBaseUrl() {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api`;
+  }
 
+  return "http://localhost:3000/api";
+}
+
+function getDefaultWebSocketBaseUrl(apiBaseUrl: string) {
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}`;
+  }
+
+  return apiBaseUrl.replace(/\/api$/, "").replace(/^http/i, "ws");
+}
+
+const DEFAULT_API_BASE_URL = getDefaultApiBaseUrl();
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_API_BASE_URL;
-const DEFAULT_WS_BASE_URL = API_BASE_URL.replace(/\/api$/, "").replace(/^http/i, "ws");
+const DEFAULT_WS_BASE_URL = getDefaultWebSocketBaseUrl(API_BASE_URL);
 const WS_BASE_URL = (import.meta.env.VITE_WS_BASE_URL as string | undefined)?.replace(/\/$/, "") || DEFAULT_WS_BASE_URL;
 
 interface ApiEnvelope<T> {

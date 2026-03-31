@@ -25,10 +25,31 @@ import imageRoutes from "./routes/images";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const allowedOrigins = (process.env.CORS_ORIGIN || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+
+function parseBaseUrlOrigin() {
+  const baseUrl = process.env.BASE_URL?.trim();
+  if (!baseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(baseUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      ...(process.env.CORS_ORIGIN || "")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+      parseBaseUrlOrigin(),
+    ].filter((origin): origin is string => Boolean(origin))
+  )
+);
 
 // ─── Global Middleware ───────────────────────────────
 app.use(cors({
