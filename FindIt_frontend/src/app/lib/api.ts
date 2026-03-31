@@ -64,6 +64,14 @@ type RawConversation = {
   unreadCount?: number | null;
   unread_count?: number | null;
 };
+type RawPresence = {
+  userId?: string;
+  user_id?: string;
+  id?: string;
+  online?: boolean | null;
+  isOnline?: boolean | null;
+  status?: string | null;
+};
 type RawOwnerLike = {
   id?: string;
   userId?: string;
@@ -315,7 +323,45 @@ function normalizeMessage(message: RawMessage): ReportMessage {
   };
 }
 
-function normalizeConversation(conversation: RawConversation): MessageConversation {
+function getConversationParticipant(
+  conversation: RawConversation,
+  currentUserId?: string | null,
+): ReportOwner | undefined {
+  const directParticipant = normalizeOwner(
+    conversation.participant ??
+      conversation.otherUser ??
+      conversation.user ??
+      conversation.counterpart,
+  );
+
+  if (directParticipant) {
+    return directParticipant;
+  }
+
+  const lastMessage = conversation.lastMessage ?? conversation.latestMessage ?? conversation.message;
+  if (!lastMessage) {
+    return undefined;
+  }
+
+  const sender = normalizeOwner(lastMessage.sender ?? lastMessage.senderUser ?? lastMessage.fromUser);
+  const receiver = normalizeOwner(lastMessage.receiver ?? lastMessage.receiverUser ?? lastMessage.toUser);
+
+  if (!currentUserId) {
+    return sender ?? receiver;
+  }
+
+  if (sender?.id === currentUserId) {
+    return receiver;
+  }
+
+  if (receiver?.id === currentUserId) {
+    return sender;
+  }
+
+  return sender ?? receiver;
+}
+
+function normalizeConversation(conversation: RawConversation, currentUserId?: string | null): MessageConversation {
   const report = conversation.report;
   const lastMessage = conversation.lastMessage ?? conversation.latestMessage ?? conversation.message;
 
@@ -323,12 +369,7 @@ function normalizeConversation(conversation: RawConversation): MessageConversati
     reportId: conversation.reportId ?? conversation.report_id ?? report?.id ?? "",
     reportItemName: report?.itemName ?? "Lost item report",
     reportStatus: report?.status,
-    participant: normalizeOwner(
-      conversation.participant ??
-        conversation.otherUser ??
-        conversation.user ??
-        conversation.counterpart,
-    ),
+    participant: getConversationParticipant(conversation, currentUserId),
     lastMessage: lastMessage ? normalizeMessage(lastMessage) : undefined,
     unreadCount: conversation.unreadCount ?? conversation.unread_count ?? 0,
   };
@@ -480,9 +521,36 @@ export async function sendReportMessage(reportId: string, payload: SendReportMes
   return normalizeMessage(response.data);
 }
 
-export async function getMessageConversations() {
+export async function getMessageConversations(currentUserId?: string | null) {
   const response = await request<RawConversation[]>("/messages/conversations", {}, true);
-  return response.data.map(normalizeConversation);
+  return response.data.map((conversation) => normalizeConversation(conversation, currentUserId));
+}
+
+export function parsePresenceUpdate(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const presence = value as RawPresence;
+  const userId = presence.userId ?? presence.user_id ?? presence.id ?? "";
+  const rawStatus = typeof presence.status === "string" ? presence.status.toLowerCase() : "";
+  const online =
+    typeof presence.online === "boolean"
+      ? presence.online
+      : typeof presence.isOnline === "boolean"
+        ? presence.isOnline
+        : rawStatus
+          ? rawStatus === "online" || rawStatus === "active"
+          : null;
+
+  if (!userId || online === null) {
+    return null;
+  }
+
+  return {
+    userId,
+    online,
+  };
 }
 
 export function formatApiError(error: unknown) {

@@ -141,7 +141,7 @@ export default function Settings() {
             setIsLoadingConversations(true);
 
             try {
-                const nextConversations = await getMessageConversations();
+                const nextConversations = await getMessageConversations(session.user.id);
                 setConversations(nextConversations);
             } catch {
                 // Keep the rest of the settings page usable if conversations fail to load.
