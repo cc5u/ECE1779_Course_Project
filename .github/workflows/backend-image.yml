@@ -127,7 +127,7 @@ jobs:
 
           for attempt in $(seq 1 60); do
             replicas=$(docker service ls --filter name=findit_backend --format '{{.Replicas}}' 2>/dev/null || true)
-            if [ "$replicas" = "1/1" ] && curl --fail --silent --show-error --max-time 5 http://localhost:3000/api/health >/dev/null; then
+            if [ "$replicas" = "1/1" ] && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/api/health >/dev/null; then
               echo "findit_backend is healthy with replicas $replicas"
               break
             fi
@@ -145,5 +145,5 @@ jobs:
           done
 
           docker service ps findit_backend --no-trunc
-          curl --fail --silent --show-error --max-time 5 http://localhost:3000/api/health
+          curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/api/health
           EOF
