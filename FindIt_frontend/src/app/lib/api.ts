@@ -275,15 +275,30 @@ async function request<T>(path: string, init: RequestInit = {}, auth = false): P
   return payload;
 }
 
+function createFallbackId(prefix: string, seed?: string | null) {
+  if (seed && seed.trim()) {
+    return `${prefix}-${seed.trim()}`;
+  }
+
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi?.randomUUID) {
+    return cryptoApi.randomUUID();
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function normalizeImage(image: RawImage): ReportImage {
+  const publicUrl =
+    image.publicUrl ??
+    image.imageUrl ??
+    image.image_url ??
+    image.url ??
+    "";
+
   return {
-    id: image.id ?? image.key ?? image.objectKey ?? crypto.randomUUID(),
-    publicUrl:
-      image.publicUrl ??
-      image.imageUrl ??
-      image.image_url ??
-      image.url ??
-      "",
+    id: image.id ?? image.key ?? image.objectKey ?? createFallbackId("image", publicUrl),
+    publicUrl,
     displayOrder: image.displayOrder,
   };
 }
@@ -336,7 +351,7 @@ function normalizeOwner(value?: RawOwnerLike | null): ReportOwner | undefined {
   }
 
   return {
-    id: id ?? crypto.randomUUID(),
+    id: id ?? createFallbackId("owner", displayName),
     displayName: displayName ?? "Unknown user",
   };
 }
@@ -344,14 +359,18 @@ function normalizeOwner(value?: RawOwnerLike | null): ReportOwner | undefined {
 function normalizeMessage(message: RawMessage): ReportMessage {
   const sender = normalizeOwner(message.sender ?? message.senderUser ?? message.fromUser);
   const receiver = normalizeOwner(message.receiver ?? message.receiverUser ?? message.toUser);
+  const reportId = message.reportId ?? message.report_id ?? "";
+  const senderId = message.senderId ?? message.sender_id ?? sender?.id ?? "";
+  const receiverId = message.receiverId ?? message.receiver_id ?? receiver?.id ?? "";
+  const createdAt = message.createdAt ?? message.created_at ?? new Date().toISOString();
 
   return {
-    id: message.id ?? crypto.randomUUID(),
-    reportId: message.reportId ?? message.report_id ?? "",
-    senderId: message.senderId ?? message.sender_id ?? sender?.id ?? "",
-    receiverId: message.receiverId ?? message.receiver_id ?? receiver?.id ?? "",
+    id: message.id ?? createFallbackId("message", `${reportId}:${senderId}:${receiverId}:${createdAt}`),
+    reportId,
+    senderId,
+    receiverId,
     messageText: message.messageText ?? message.message ?? message.text ?? "",
-    createdAt: message.createdAt ?? message.created_at ?? new Date().toISOString(),
+    createdAt,
     updatedAt: message.updatedAt ?? message.updated_at,
     sender,
     receiver,
