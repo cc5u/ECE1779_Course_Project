@@ -18,6 +18,20 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── Redis Pub/Sub ──────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: findit-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ─── Backend API ────────────────────────────────────
   backend:
     image: chiachun5/findit-backend:latest
@@ -38,8 +52,11 @@ services:
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: "*"
       BASE_URL: http://localhost:3000
+      REDIS_URL: ${REDIS_URL_DOCKER:-redis://redis:6379}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:
