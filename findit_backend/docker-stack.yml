@@ -59,6 +59,9 @@ services:
       retries: 3
     deploy:
       replicas: ${BACKEND_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.role == manager
       restart_policy:
         condition: on-failure
         delay: 10s
