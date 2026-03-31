@@ -54,14 +54,15 @@
 
 - `backend_dev` push:
   - builds and pushes the backend image
-  - deploys the backend stack to the `staging` environment
-- `main` push:
-  - builds and pushes the backend image
   - deploys the backend stack
   - builds and publishes the frontend static files
   - installs the Nginx config and reloads Nginx
+  - uses the `staging` GitHub Environment
+- `main` push:
+  - builds and pushes the backend image
+  - does not deploy automatically
 
-Create a `production` GitHub Environment with:
+Create a `staging` GitHub Environment with:
 
 - `SSH_HOST`
 - `SSH_USER`
@@ -69,7 +70,7 @@ Create a `production` GitHub Environment with:
 - `SSH_KNOWN_HOSTS`
 - `SSH_PORT` if not using port 22
 
-The production deploy expects the manager node to already have:
+The staging deploy expects the manager node to already have:
 
 - the repo at `/opt/findit/repo/ECE1779_Course_Project`
 - backend env file at `/opt/findit/shared/.env.stack`
