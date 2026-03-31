@@ -462,6 +462,13 @@
     ],
     "messages": [
       {
+        "name": "Subscribe to the global reports feed",
+        "body": {
+          "type": "subscribe",
+          "channel": "reports"
+        }
+      },
+      {
         "name": "Subscribe to a report",
         "body": {
           "type": "subscribe",
@@ -469,9 +476,30 @@
         }
       },
       {
+        "name": "Unsubscribe from the global reports feed",
+        "body": {
+          "type": "unsubscribe",
+          "channel": "reports"
+        }
+      },
+      {
         "name": "Unsubscribe from a report",
         "body": {
           "type": "unsubscribe",
+          "reportId": "{{reportId}}"
+        }
+      },
+      {
+        "name": "Send typing_start for a report",
+        "body": {
+          "type": "typing_start",
+          "reportId": "{{reportId}}"
+        }
+      },
+      {
+        "name": "Send typing_stop for a report",
+        "body": {
+          "type": "typing_stop",
           "reportId": "{{reportId}}"
         }
       }

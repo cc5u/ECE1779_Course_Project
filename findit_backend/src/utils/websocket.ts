@@ -4,10 +4,13 @@ import jwt from "jsonwebtoken";
 import { parse } from "url";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+export const REPORTS_CHANNEL = "reports";
 
 interface AuthenticatedSocket extends WebSocket {
   userId?: string;
   subscribedReports: Set<string>;
+  subscribedChannels: Set<string>;
+  activeTypingReports: Set<string>;
   isAlive: boolean;
 }
 
@@ -28,6 +31,37 @@ export function broadcastToReport(reportId: string, event: object) {
   }
 }
 
+function broadcastToReportExceptUser(reportId: string, excludedUserId: string, event: object) {
+  const payload = JSON.stringify(event);
+  for (const client of clients) {
+    if (client.userId === excludedUserId) {
+      continue;
+    }
+    if (client.subscribedReports.has(reportId) && client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
+/**
+ * Send an event to all clients subscribed to a named global channel.
+ */
+export function broadcastToChannel(channel: string, event: object) {
+  const payload = JSON.stringify(event);
+  for (const client of clients) {
+    if (client.subscribedChannels.has(channel) && client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
+/**
+ * Send an event to clients subscribed to the global reports feed.
+ */
+export function broadcastToReports(event: object) {
+  broadcastToChannel(REPORTS_CHANNEL, event);
+}
+
 /**
  * Send an event to a specific user (e.g., new message notification)
  */
@@ -44,6 +78,19 @@ export function sendToUser(userId: string, event: object) {
 
 export function setupWebSocket(server: HttpServer) {
   const wss = new WebSocketServer({ server, path: "/ws" });
+
+  function stopTyping(ws: AuthenticatedSocket, reportId: string) {
+    if (!ws.userId || !ws.activeTypingReports.has(reportId)) {
+      return;
+    }
+
+    ws.activeTypingReports.delete(reportId);
+    broadcastToReportExceptUser(reportId, ws.userId, {
+      type: "typing_stop",
+      reportId,
+      userId: ws.userId,
+    });
+  }
 
   // Heartbeat to detect disconnected clients
   const heartbeat = setInterval(() => {
@@ -62,6 +109,8 @@ export function setupWebSocket(server: HttpServer) {
 
   wss.on("connection", (ws: AuthenticatedSocket, req) => {
     ws.subscribedReports = new Set();
+    ws.subscribedChannels = new Set();
+    ws.activeTypingReports = new Set();
     ws.isAlive = true;
     clients.add(ws);
 
@@ -90,14 +139,60 @@ export function setupWebSocket(server: HttpServer) {
             if (msg.reportId && typeof msg.reportId === "string") {
               ws.subscribedReports.add(msg.reportId);
               ws.send(JSON.stringify({ type: "subscribed", reportId: msg.reportId }));
+            } else if (msg.channel === REPORTS_CHANNEL) {
+              ws.subscribedChannels.add(REPORTS_CHANNEL);
+              ws.send(JSON.stringify({ type: "subscribed", channel: REPORTS_CHANNEL }));
+            } else {
+              ws.send(JSON.stringify({ type: "error", message: "Missing or invalid subscription target" }));
             }
             break;
 
           case "unsubscribe":
             if (msg.reportId) {
+              stopTyping(ws, msg.reportId);
               ws.subscribedReports.delete(msg.reportId);
               ws.send(JSON.stringify({ type: "unsubscribed", reportId: msg.reportId }));
+            } else if (msg.channel === REPORTS_CHANNEL) {
+              ws.subscribedChannels.delete(REPORTS_CHANNEL);
+              ws.send(JSON.stringify({ type: "unsubscribed", channel: REPORTS_CHANNEL }));
+            } else {
+              ws.send(JSON.stringify({ type: "error", message: "Missing or invalid unsubscription target" }));
             }
+            break;
+
+          case "typing_start":
+            if (!ws.userId) {
+              ws.send(JSON.stringify({ type: "error", message: "Authentication required for typing indicators" }));
+              break;
+            }
+            if (!msg.reportId || typeof msg.reportId !== "string") {
+              ws.send(JSON.stringify({ type: "error", message: "Missing or invalid reportId for typing_start" }));
+              break;
+            }
+            if (!ws.subscribedReports.has(msg.reportId)) {
+              ws.send(JSON.stringify({ type: "error", message: "Subscribe to the report before sending typing_start" }));
+              break;
+            }
+            if (!ws.activeTypingReports.has(msg.reportId)) {
+              ws.activeTypingReports.add(msg.reportId);
+              broadcastToReportExceptUser(msg.reportId, ws.userId, {
+                type: "typing_start",
+                reportId: msg.reportId,
+                userId: ws.userId,
+              });
+            }
+            break;
+
+          case "typing_stop":
+            if (!ws.userId) {
+              ws.send(JSON.stringify({ type: "error", message: "Authentication required for typing indicators" }));
+              break;
+            }
+            if (!msg.reportId || typeof msg.reportId !== "string") {
+              ws.send(JSON.stringify({ type: "error", message: "Missing or invalid reportId for typing_stop" }));
+              break;
+            }
+            stopTyping(ws, msg.reportId);
             break;
 
           default:
@@ -109,6 +204,9 @@ export function setupWebSocket(server: HttpServer) {
     });
 
     ws.on("close", () => {
+      for (const reportId of Array.from(ws.activeTypingReports)) {
+        stopTyping(ws, reportId);
+      }
       clients.delete(ws);
     });
 
