@@ -19,6 +19,12 @@ import {
 } from '../lib/api';
 import { getStoredSession } from '../lib/auth';
 
+const transparentStyleImage = {
+    width: 1,
+    height: 1,
+    data: new Uint8Array(4),
+};
+
 export function Home() {
     const session = getStoredSession();
     const currentUserId = session?.user.id ?? null;
@@ -178,6 +184,11 @@ export function Home() {
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.on('styleimagemissing', (event: { id: string }) => {
+            if (!map.hasImage(event.id)) {
+                map.addImage(event.id, transparentStyleImage);
+            }
+        });
 
         map.on('load', () => {
             const layers = map.getStyle().layers;
@@ -191,8 +202,8 @@ export function Home() {
                     'source-layer': 'building',
                     paint: {
                         'fill-extrusion-color': '#d9d2c3',
-                        'fill-extrusion-height': ['get', 'render_height'],
-                        'fill-extrusion-base': ['get', 'render_min_height'],
+                        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 0],
+                        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
                         'fill-extrusion-opacity': 0.68,
                     },
                 },

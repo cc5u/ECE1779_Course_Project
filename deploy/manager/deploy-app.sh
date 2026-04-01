@@ -59,7 +59,7 @@ if [ -n "${BACKEND_IMAGE:-}" ]; then
   done
 fi
 
-for attempt in $(seq 1 60); do
+for attempt in $(seq 1 120); do
   replicas=$(docker service ls --filter name="$BACKEND_SERVICE_NAME" --format '{{.Replicas}}' 2>/dev/null || true)
   actual=${replicas%/*}
   desired=${replicas#*/}
@@ -69,9 +69,9 @@ for attempt in $(seq 1 60); do
     break
   fi
 
-  echo "Waiting for $BACKEND_SERVICE_NAME health (attempt $attempt/60, replicas=${replicas:-unknown})"
+  echo "Waiting for $BACKEND_SERVICE_NAME health (attempt $attempt/120, replicas=${replicas:-unknown})"
 
-  if [ "$attempt" -eq 60 ]; then
+  if [ "$attempt" -eq 120 ]; then
     echo "Timed out waiting for $BACKEND_SERVICE_NAME to become healthy" >&2
     docker service ps "$BACKEND_SERVICE_NAME" --no-trunc
     docker service logs --tail 200 "$BACKEND_SERVICE_NAME"

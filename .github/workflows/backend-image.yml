@@ -16,7 +16,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Detect backend-impacting changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'findit_backend/**'
+              - '.github/workflows/backend-image.yml'
+
   build-and-push:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,8 +72,15 @@ jobs:
 
   deploy-staging:
     name: deploy-staging
-    needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - detect-changes
+      - build-and-push
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.detect-changes.result == 'success' &&
+      (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -80,6 +108,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
           SSH_USER: ${{ secrets.SSH_USER }}
           BACKEND_IMAGE: ${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
+          SHOULD_UPDATE_BACKEND_IMAGE: ${{ needs.detect-changes.outputs.backend }}
         run: |
           ssh \
             -o ServerAliveInterval=15 \
@@ -87,7 +116,7 @@ jobs:
             -o TCPKeepAlive=yes \
             -p "$SSH_PORT" \
             "$SSH_USER@$SSH_HOST" \
-            "BACKEND_IMAGE='$BACKEND_IMAGE' REMOTE_REPO_DIR='$REMOTE_REPO_DIR' REMOTE_ENV_FILE='$REMOTE_ENV_FILE' bash -se" <<'EOF'
+            "BACKEND_IMAGE='$BACKEND_IMAGE' SHOULD_UPDATE_BACKEND_IMAGE='$SHOULD_UPDATE_BACKEND_IMAGE' REMOTE_REPO_DIR='$REMOTE_REPO_DIR' REMOTE_ENV_FILE='$REMOTE_ENV_FILE' bash -se" <<'EOF'
           set -euo pipefail
 
           cd "$REMOTE_REPO_DIR"
@@ -95,9 +124,12 @@ jobs:
           git checkout main
           git pull --ff-only origin main
 
+          if [ "${SHOULD_UPDATE_BACKEND_IMAGE:-false}" != "true" ]; then
+            unset BACKEND_IMAGE
+          fi
+
           SKIP_GIT_SYNC=1 \
           DEPLOY_BRANCH=main \
           REMOTE_ENV_FILE="$REMOTE_ENV_FILE" \
-          BACKEND_IMAGE="$BACKEND_IMAGE" \
           bash ./deploy/manager/deploy-app.sh
           EOF
