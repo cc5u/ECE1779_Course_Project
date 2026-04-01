@@ -61,8 +61,9 @@ fi
 
 for attempt in $(seq 1 120); do
   replicas=$(docker service ls --filter name="$BACKEND_SERVICE_NAME" --format '{{.Replicas}}' 2>/dev/null || true)
-  actual=${replicas%/*}
-  desired=${replicas#*/}
+  replicas_pair=${replicas%% *}
+  actual=${replicas_pair%/*}
+  desired=${replicas_pair#*/}
 
   if [ -n "$actual" ] && [ "$actual" = "$desired" ] && curl --fail --silent --show-error --max-time 5 "$BACKEND_HEALTH_URL" >/dev/null; then
     echo "$BACKEND_SERVICE_NAME is healthy with replicas ${replicas:-unknown}"
