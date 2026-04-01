@@ -12,7 +12,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "db:push": "prisma generate && prisma db push --accept-data-loss",
-    "start": "npm run db:push && node dist/server.js",
+    "start": "npm run db:push && node dist/server.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1014.0",
