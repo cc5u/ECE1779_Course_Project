@@ -5,7 +5,6 @@ import {
   formatApiError,
   getAuthenticatedWebSocketUrl,
   getReportMessages,
-  parsePresenceUpdate,
   parseReportMessage,
   sendReportMessage,
   type ReportMessage,
@@ -86,7 +85,6 @@ export function ReportChatModal({
   const [isSending, setIsSending] = useState(false);
   const [connectionState, setConnectionState] = useState<"idle" | "connecting" | "connected" | "disconnected">("idle");
   const [isBrowserOnline, setIsBrowserOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-  const [participantPresence, setParticipantPresence] = useState<"online" | "offline" | "unknown">("unknown");
   const [isParticipantTyping, setIsParticipantTyping] = useState(false);
   const [liveStatusNote, setLiveStatusNote] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
@@ -137,7 +135,6 @@ export function ReportChatModal({
 
   useEffect(() => {
     if (!participantId) {
-      setParticipantPresence("unknown");
       setIsParticipantTyping(false);
     }
   }, [participantId]);
@@ -280,16 +277,6 @@ export function ReportChatModal({
                 (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
               ),
             );
-            return;
-          }
-
-          const presenceUpdate =
-            parsePresenceUpdate(payload) ??
-            parsePresenceUpdate(payload.data) ??
-            parsePresenceUpdate(payload.message);
-
-          if (presenceUpdate && presenceUpdate.userId === participantId) {
-            setParticipantPresence(presenceUpdate.online ? "online" : "offline");
             return;
           }
 
