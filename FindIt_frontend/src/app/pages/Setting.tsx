@@ -7,10 +7,12 @@ import { StatusConfirmationModal } from '../components/StatusConfirmationModal';
 import {
     deleteReport,
     formatApiError,
+    getAuthenticatedWebSocketUrl,
     getMessageConversations,
     getMyReports,
     getProfile,
     getSightings,
+    parseReportMessage,
     updateReportStatus,
     type LostReport,
     type MessageConversation,
@@ -105,51 +107,10 @@ export default function Settings() {
     }, [session?.token]);
 
     useEffect(() => {
-        async function loadOwnerReports() {
-            if (!session?.token) {
-                return;
-            }
-
-            setIsLoadingReports(true);
-            setReportsError('');
-
-            try {
-                const reports = await getMyReports();
-                setMyReports(reports);
-
-                const sightingsEntries = await Promise.all(
-                    reports.map(async (report) => [report.id, await getSightings(report.id)] as const),
-                );
-
-                setReportSightings(Object.fromEntries(sightingsEntries));
-            } catch (error) {
-                setReportsError(formatApiError(error));
-            } finally {
-                setIsLoadingReports(false);
-            }
-        }
-
         void loadOwnerReports();
     }, [session?.token]);
 
     useEffect(() => {
-        async function loadConversations() {
-            if (!session?.token) {
-                return;
-            }
-
-            setIsLoadingConversations(true);
-
-            try {
-                const nextConversations = await getMessageConversations(session.user.id);
-                setConversations(nextConversations);
-            } catch {
-                // Keep the rest of the settings page usable if conversations fail to load.
-            } finally {
-                setIsLoadingConversations(false);
-            }
-        }
-
         void loadConversations();
     }, [session?.token]);
 
@@ -174,12 +135,14 @@ export default function Settings() {
         setTimeout(() => setSaveMessage(''), 3000);
     };
 
-    const refreshOwnerReports = async () => {
+    const loadOwnerReports = async (showLoading = true) => {
         if (!session?.token) {
             return;
         }
 
-        setIsLoadingReports(true);
+        if (showLoading) {
+            setIsLoadingReports(true);
+        }
         setReportsError('');
 
         try {
@@ -194,8 +157,35 @@ export default function Settings() {
         } catch (error) {
             setReportsError(formatApiError(error));
         } finally {
-            setIsLoadingReports(false);
+            if (showLoading) {
+                setIsLoadingReports(false);
+            }
         }
+    };
+
+    const loadConversations = async (showLoading = true) => {
+        if (!session?.token) {
+            return;
+        }
+
+        if (showLoading) {
+            setIsLoadingConversations(true);
+        }
+
+        try {
+            const nextConversations = await getMessageConversations(session.user.id);
+            setConversations(nextConversations);
+        } catch {
+            // Keep the rest of the settings page usable if conversations fail to load.
+        } finally {
+            if (showLoading) {
+                setIsLoadingConversations(false);
+            }
+        }
+    };
+
+    const refreshOwnerReports = async () => {
+        await loadOwnerReports();
     };
 
     const openChat = ({
@@ -216,6 +206,96 @@ export default function Settings() {
             participant,
         });
     };
+
+    useEffect(() => {
+        if (!session?.token) {
+            return;
+        }
+
+        const socket = new WebSocket(getAuthenticatedWebSocketUrl(session.token));
+        const ownerReportIds = new Set(myReports.map((report) => report.id));
+
+        socket.onopen = () => {
+            socket.send(JSON.stringify({ type: 'subscribe', channel: 'reports' }));
+
+            for (const reportId of ownerReportIds) {
+                socket.send(JSON.stringify({ type: 'subscribe', reportId }));
+            }
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as {
+                    type?: string;
+                    reportId?: string;
+                    data?: unknown;
+                    message?: unknown;
+                };
+
+                const eventType = payload.type ?? '';
+                const reportId = payload.reportId ?? '';
+                const reportMessage =
+                    parseReportMessage(payload.message) ??
+                    parseReportMessage(payload.data) ??
+                    parseReportMessage(payload);
+
+                if (reportMessage) {
+                    void loadConversations(false);
+                    return;
+                }
+
+                if (
+                    eventType === 'report_created' ||
+                    eventType === 'report_updated' ||
+                    eventType === 'report_deleted'
+                ) {
+                    void loadOwnerReports(false);
+                    void loadConversations(false);
+                }
+
+                if (
+                    reportId &&
+                    ownerReportIds.has(reportId) &&
+                    (eventType === 'new_sighting' || eventType === 'status_change')
+                ) {
+                    void loadOwnerReports(false);
+                }
+
+                if (reportId && chatContext?.reportId === reportId && (eventType === 'report_updated' || eventType === 'status_change')) {
+                    const nextStatus =
+                        typeof (payload.data as { status?: unknown } | undefined)?.status === 'string'
+                            ? (payload.data as { status: string }).status
+                            : typeof (payload.data as { newStatus?: unknown } | undefined)?.newStatus === 'string'
+                                ? (payload.data as { newStatus: string }).newStatus
+                                : typeof (payload as { newStatus?: unknown }).newStatus === 'string'
+                                    ? (payload as { newStatus: string }).newStatus
+                                    : '';
+
+                    if (nextStatus) {
+                        setChatContext((current) =>
+                            current && current.reportId === reportId
+                                ? { ...current, reportStatusLabel: getDisplayStatus(nextStatus as LostReport['status']) }
+                                : current,
+                        );
+                    }
+                }
+            } catch {
+                // Ignore malformed websocket events.
+            }
+        };
+
+        return () => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'unsubscribe', channel: 'reports' }));
+
+                for (const reportId of ownerReportIds) {
+                    socket.send(JSON.stringify({ type: 'unsubscribe', reportId }));
+                }
+            }
+
+            socket.close();
+        };
+    }, [chatContext?.reportId, myReports, session?.token]);
 
     const handleOwnerActionConfirm = async () => {
         if (!pendingOwnerAction) {

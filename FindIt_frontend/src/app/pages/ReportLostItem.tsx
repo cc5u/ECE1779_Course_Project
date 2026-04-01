@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import { Upload, MapPin } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { createReport, formatApiError, uploadReportImages } from '../lib/api';
 
@@ -357,8 +357,7 @@ export default function ReportLostItem() {
                         </Marker>
                     </MapContainer>
                     </div>
-                    <p className="mt-3 flex items-center gap-2 text-sm text-gray-500">
-                    <MapPin className="w-4 h-4 text-red-500" />
+                    <p className="mt-3 text-sm text-gray-500">
                     Selected coordinates: {pinPosition[0].toFixed(5)}, {pinPosition[1].toFixed(5)}
                     </p>
                 </div>
@@ -427,7 +426,7 @@ export default function ReportLostItem() {
                 {/* Form Actions */}
                 <div className="flex justify-end gap-3 pt-4">
                     <Link
-                    to="/"
+                    to="/home"
                     className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                     >
                     Cancel

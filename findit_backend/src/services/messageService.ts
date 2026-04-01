@@ -49,6 +49,9 @@ export async function sendMessage(reportId: string, senderId: string, input: Cre
   // Broadcast to anyone viewing this report
   broadcastToReport(reportId, { type: "new_message", reportId, data: message });
 
+  // Mirror the event back to the sender so conversation lists stay live without a manual refresh.
+  sendToUser(senderId, { type: "new_message", reportId, data: message });
+
   // Also send directly to the receiver (even if they're not subscribed to the report)
   sendToUser(input.receiverId, { type: "new_message", reportId, data: message });
 

@@ -442,13 +442,6 @@ export function ReportChatModal({
         : isRealtimeOnline
           ? "Online"
           : "Offline";
-  const participantStatus =
-    !isRealtimeOnline
-      ? "offline"
-      : participantPresence !== "unknown"
-        ? participantPresence
-        : "online";
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
       <div className="flex h-[min(720px,90vh)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -467,14 +460,6 @@ export function ReportChatModal({
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
               <span>{resolvedParticipant ? `Chatting with ${resolvedParticipant.displayName}` : "Choose a participant to start chatting."}</span>
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    participantStatus === "online" ? "bg-emerald-500" : "bg-gray-400"
-                  }`}
-                />
-                {participantStatus === "online" ? "Online" : "Offline"}
-              </span>
               <span className="inline-flex items-center gap-1.5">
                 {isRealtimeOnline ? (
                   <Wifi className="h-4 w-4 text-emerald-600" />
