@@ -85,7 +85,10 @@ services:
         delay: 10s
       update_config:
         parallelism: 1
-        order: start-first
+        # With max_replicas_per_node: 1 and a 2-node / 2-replica setup,
+        # start-first can deadlock because Swarm has nowhere to place
+        # the temporary extra task during an update.
+        order: stop-first
         failure_action: rollback
 
 networks:
