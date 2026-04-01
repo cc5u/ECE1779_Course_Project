@@ -3,7 +3,7 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --include=dev
+RUN npm ci
 
 FROM node:20-alpine AS builder
 
@@ -29,7 +29,8 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-COPY --from=builder /app/node_modules ./node_modules
+RUN npm ci --omit=dev
+RUN npx prisma generate
 COPY --from=builder /app/dist ./dist
 
 RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app
