@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: findit-backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: findit-backend
+  template:
+    metadata:
+      labels:
+        app: findit-backend
+    spec:
+      containers:
+      - name: findit-backend
+        image: chiachun5/findit-backend:latest
+        imagePullPolicy: Always 
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /api/health 
+            port: 3000
+          initialDelaySeconds: 15 
+          periodSeconds: 10
+        # ─────────────────────────────────────
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: findit-secrets
+              key: POSTGRES_PASSWORD
+        - name: DATABASE_URL
+          value: "postgresql://postgres:$(POSTGRES_PASSWORD)@postgres:5432/findit?schema=public"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: findit-secrets
+              key: JWT_SECRET
+        - name: NODE_ENV
+          value: "production"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: findit-backend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: findit-backend
