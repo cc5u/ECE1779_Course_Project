@@ -18,17 +18,17 @@ The active deployment shape is:
   - `/ws` -> backend
   - `/uploads` -> backend
 
-The authoritative manifests live under `findit_backend/k8s/`.
+The authoritative manifests live under `deploy/k8s/`.
 
 ## Kubernetes Manifests
 
-- `findit_backend/k8s/namespace.yaml`
-- `findit_backend/k8s/backend-config.yaml`
-- `findit_backend/k8s/postgres.yaml`
-- `findit_backend/k8s/redis.yaml`
-- `findit_backend/k8s/backend.yaml`
-- `findit_backend/k8s/frontend.yaml`
-- `findit_backend/k8s/ingress.yaml`
+- `deploy/k8s/namespace.yaml`
+- `deploy/k8s/backend-config.yaml`
+- `deploy/k8s/postgres.yaml`
+- `deploy/k8s/redis.yaml`
+- `deploy/k8s/backend.yaml`
+- `deploy/k8s/frontend.yaml`
+- `deploy/k8s/ingress.yaml`
 
 ## Cluster Prerequisites
 
@@ -39,7 +39,7 @@ Before deploying, make sure the target cluster already has:
 - outbound access for pulling Docker images
 - access to DigitalOcean Spaces if you plan to use Spaces-backed uploads
 
-If your cluster does not use the `do-block-storage` storage class, update `findit_backend/k8s/postgres.yaml` before deploying.
+If your cluster does not use the `do-block-storage` storage class, update `deploy/k8s/postgres.yaml` before deploying.
 
 ## Required Kubernetes Secret
 
@@ -52,7 +52,7 @@ Important:
 Create the namespace first:
 
 ```bash
-kubectl apply -f ./findit_backend/k8s/namespace.yaml
+kubectl apply -f ./deploy/k8s/namespace.yaml
 ```
 
 Create or update the secret:
@@ -86,13 +86,13 @@ doctl kubernetes cluster kubeconfig save "$DIGITALOCEAN_CLUSTER_NAME"
 Apply the manifests:
 
 ```bash
-kubectl apply -f ./findit_backend/k8s/namespace.yaml
-kubectl apply -f ./findit_backend/k8s/backend-config.yaml
-kubectl apply -f ./findit_backend/k8s/postgres.yaml
-kubectl apply -f ./findit_backend/k8s/redis.yaml
-kubectl apply -f ./findit_backend/k8s/backend.yaml
-kubectl apply -f ./findit_backend/k8s/frontend.yaml
-kubectl apply -f ./findit_backend/k8s/ingress.yaml
+kubectl apply -f ./deploy/k8s/namespace.yaml
+kubectl apply -f ./deploy/k8s/backend-config.yaml
+kubectl apply -f ./deploy/k8s/postgres.yaml
+kubectl apply -f ./deploy/k8s/redis.yaml
+kubectl apply -f ./deploy/k8s/backend.yaml
+kubectl apply -f ./deploy/k8s/frontend.yaml
+kubectl apply -f ./deploy/k8s/ingress.yaml
 ```
 
 If you want to deploy a specific image tag instead of whatever `latest` points to:
