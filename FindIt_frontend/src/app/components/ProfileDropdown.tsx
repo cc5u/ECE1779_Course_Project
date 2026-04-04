@@ -1,6 +1,6 @@
 import {useState, useRef, useEffect} from 'react';
-import {Settings, LogOut, Mail} from 'lucide-react';
-import {Link, useNavigate} from 'react-router';
+import {LogOut, Mail} from 'lucide-react';
+import {useNavigate} from 'react-router';
 import { useAuth } from '../lib/auth';
 import { getProfile } from '../lib/api';
 
@@ -106,17 +106,6 @@ export function ProfileDropdown() {
               </div>
             </div>
           </div>
-
-          {/* Menu Items */}
-          <div className="py-2">
-            <Link
-              to="/settings"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="text-sm font-medium">Settings</span>
-            </Link>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
@@ -125,7 +114,6 @@ export function ProfileDropdown() {
               <span className="text-sm font-medium">Logout</span>
             </button>
           </div>
-        </div>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { ClipboardList, MapPin, MessageSquare } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { useAuth } from "../lib/auth";
 import { ProfileDropdown } from "./ProfileDropdown";
@@ -6,12 +6,8 @@ import { ProfileDropdown } from "./ProfileDropdown";
 export function Navbar() {
     const location = useLocation();
     const { isAuthenticated } = useAuth();
-    const searchParams = new URLSearchParams(location.search);
-    const activeSettingsTab = searchParams.get("tab");
     const isHomePage = location.pathname === "/home";
     const isCreateReportPage = location.pathname === "/report";
-    const isReportsPage = location.pathname === "/settings" && activeSettingsTab === "reports";
-    const isMessagesPage = location.pathname === "/settings" && activeSettingsTab === "messages";
 
     return (
         <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50">
@@ -27,28 +23,6 @@ export function Navbar() {
             }`}>
                 Home
             </Link>
-            {isAuthenticated ? (
-                <>
-                    <Link
-                        to="/settings?tab=reports"
-                        className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-                            isReportsPage ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                    >
-                        <ClipboardList className="h-4 w-4" />
-                        My Reports
-                    </Link>
-                    <Link
-                        to="/settings?tab=messages"
-                        className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-                            isMessagesPage ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                    >
-                        <MessageSquare className="h-4 w-4" />
-                        Messages
-                    </Link>
-                </>
-            ) : null}
             <Link 
                 to="/report" 
                 className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-colors ${
