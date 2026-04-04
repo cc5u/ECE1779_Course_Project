@@ -1,0 +1,85 @@
+name: frontend-k8s-cicd
+
+on:
+  push:
+    branches:
+      - k8s-findit
+    paths:
+      - "FindIt_frontend/**"
+      - "findit_backend/k8s/frontend.yaml"
+      - "findit_backend/k8s/ingress.yaml"
+      - ".github/workflows/frontend-image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-k8s-cicd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./FindIt_frontend
+          file: ./FindIt_frontend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}:latest
+            ${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  deploy-frontend:
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/k8s-findit'
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_NAME }}
+
+      - name: Apply frontend and ingress manifests
+        run: |
+          kubectl apply -f ./findit_backend/k8s/namespace.yaml
+          kubectl apply -f ./findit_backend/k8s/frontend.yaml
+          kubectl apply -f ./findit_backend/k8s/ingress.yaml
+
+      - name: Update frontend image
+        run: |
+          kubectl -n findit set image deployment/findit-frontend \
+            findit-frontend=${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
+
+      - name: Verify frontend rollout
+        run: |
+          kubectl -n findit rollout status deployment/findit-frontend --timeout=180s
+          kubectl -n findit get pods
+          kubectl -n findit get ingress

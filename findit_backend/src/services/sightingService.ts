@@ -1,7 +1,7 @@
 import prisma from "../prisma/client";
 import { AppError } from "../middleware/errorHandler";
 import { CreateSightingInput } from "../utils/validation";
-import { broadcastToReport } from "../utils/websocket";
+import { broadcastToReport, broadcastToReports } from "../utils/websocket";
 
 export async function createSighting(reportId: string, finderId: string, input: CreateSightingInput) {
   // Verify report exists and is active
@@ -39,9 +39,15 @@ export async function createSighting(reportId: string, finderId: string, input: 
 
   // Auto-update report status to possibly_found if still 'lost'
   if (report.status === "lost") {
-    await prisma.lostReport.update({
+    const updatedReport = await prisma.lostReport.update({
       where: { id: reportId },
       data: { status: "possibly_found" },
+    });
+
+    broadcastToReports({
+      type: "report_updated",
+      reportId,
+      data: updatedReport,
     });
 
     // Broadcast the status change too

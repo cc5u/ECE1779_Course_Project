@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: findit-backend-config
+  namespace: findit
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  POSTGRES_USER: "postgres"
+  POSTGRES_DB: "findit"

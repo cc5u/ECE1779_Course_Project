@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: findit-frontend
+  namespace: findit
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: findit-frontend
+  template:
+    metadata:
+      labels:
+        app: findit-frontend
+    spec:
+      containers:
+        - name: findit-frontend
+          image: chiachun5/findit-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: findit-frontend
+  namespace: findit
+spec:
+  type: ClusterIP
+  selector:
+    app: findit-frontend
+  ports:
+    - port: 80
+      targetPort: 80

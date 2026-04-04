@@ -7,7 +7,12 @@ import http from "http";
 import path from "path";
 import prisma from "./prisma/client";
 import { errorHandler } from "./middleware/errorHandler";
-import { setupWebSocket } from "./utils/websocket";
+import {
+  closeWebSocketPubSub,
+  getRealtimeTransportMode,
+  initializeWebSocketPubSub,
+  setupWebSocket,
+} from "./utils/websocket";
 import { getImageStorageMode } from "./services/storageService";
 
 // Route imports
@@ -20,10 +25,31 @@ import imageRoutes from "./routes/images";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const allowedOrigins = (process.env.CORS_ORIGIN || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+
+function parseBaseUrlOrigin() {
+  const baseUrl = process.env.BASE_URL?.trim();
+  if (!baseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(baseUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      ...(process.env.CORS_ORIGIN || "")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+      parseBaseUrlOrigin(),
+    ].filter((origin): origin is string => Boolean(origin))
+  )
+);
 
 // ─── Global Middleware ───────────────────────────────
 app.use(cors({
@@ -85,8 +111,10 @@ async function start() {
   try {
     // Test database connection
     await prisma.$connect();
+    await initializeWebSocketPubSub();
     console.log("Database connected successfully");
     console.log(`Image storage mode: ${getImageStorageMode()}`);
+    console.log(`Realtime transport mode: ${getRealtimeTransportMode()}`);
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`\n🚀 Server running on http://localhost:${PORT}`);
@@ -124,6 +152,7 @@ async function start() {
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received. Shutting down...");
   server.close();
+  await closeWebSocketPubSub();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -131,6 +160,7 @@ process.on("SIGTERM", async () => {
 process.on("SIGINT", async () => {
   console.log("\nSIGINT received. Shutting down...");
   server.close();
+  await closeWebSocketPubSub();
   await prisma.$disconnect();
   process.exit(0);
 });

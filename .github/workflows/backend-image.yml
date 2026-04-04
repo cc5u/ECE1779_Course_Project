@@ -1,20 +1,19 @@
-name: backend-image
+name: backend-k8s-cicd
 
 on:
   push:
     branches:
-      - k8s-findit 
+      - k8s-findit
     paths:
       - "findit_backend/**"
       - ".github/workflows/backend-image.yml"
-  workflow_dispatch: 
+  workflow_dispatch:
 
 concurrency:
-  group: backend-image-${{ github.ref }}
-  cancel-in-progress: true 
+  group: backend-k8s-cicd-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # ─── Docker Image ──────────────────────
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
@@ -23,7 +22,7 @@ jobs:
       IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-backend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -48,16 +47,17 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
 
-  # ─── DigitalOcean Kubernetes ────────────────
   deploy-staging:
-    name: Deploy to DigitalOcean Kubernetes
+    name: deploy-backend-to-k8s
     needs: build-and-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/k8s-findit'
     runs-on: ubuntu-latest
     environment: staging
+    env:
+      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-backend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -67,16 +67,20 @@ jobs:
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_NAME }}
 
-      - name: Update Deployment Image
+      - name: Apply Kubernetes manifests
         run: |
-          kubectl set image deployment/findit-backend \
-            findit-backend=${{ secrets.DOCKERHUB_USERNAME }}/findit-backend:sha-${{ github.sha }}
+          kubectl apply -f ./findit_backend/k8s/namespace.yaml
+          kubectl apply -f ./findit_backend/k8s/backend-config.yaml
+          kubectl apply -f ./findit_backend/k8s/postgres.yaml
+          kubectl apply -f ./findit_backend/k8s/backend.yaml
 
-      - name: Verify Deployment Status
+      - name: Update backend image
         run: |
-          kubectl rollout status deployment/findit-backend --timeout=180s
+          kubectl -n findit set image deployment/findit-backend \
+            findit-backend=${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
 
-      - name: Final Health Check
+      - name: Verify backend rollout
         run: |
-          echo "Deployment successful! Checking rollout history..."
-          kubectl rollout history deployment/findit-backend
+          kubectl -n findit rollout status deployment/findit-backend --timeout=180s
+          kubectl -n findit get pods
+          kubectl -n findit get svc
