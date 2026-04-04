@@ -130,6 +130,7 @@ Our system was implemented as a **full-stack containerized web application** wit
       This setup gives us both raw metrics endpoints and dashboard-based visualization.
 
       - **Cluster visibility:** We can inspect pod, deployment, service, and namespace-level behavior through Kubernetes metrics.
+      <img src="images/insights.JPG?raw=true" alt="pods insights" width="50%" />
       - **Operational debugging:** Monitoring complements `kubectl logs`, `kubectl describe`, rollout checks, and backend health endpoints during deployment troubleshooting.
       - **Dashboard-based review:** Grafana provides a more readable view of resource trends and workload health than raw command-line inspection alone.
       - **Prometheus query support:** Prometheus gives us a central interface for scraping and querying cluster metrics exposed by installed exporters.
