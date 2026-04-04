@@ -278,3 +278,17 @@ _[Image of two users' chat window]_
 
 ## Lessons Learned and Conclusion
 
+#### 1. The Reality of Cloud-Native Orchestration
+
+This project reinforced that building a cloud-native application is about much more than just containerizing code. The most significant challenges emerged at the **boundaries between services**: managing persistent data via **PVCs**, securing environment variables with **Secrets**, and fine-tuning **Ingress routing**. We discovered that even a minor manifest error—such as an incorrect ingress path priority—can "shadow" an entire API, highlighting the immediate production impact of infrastructure-as-code.
+
+#### 2. Tooling: Docker Swarm vs. Kubernetes
+
+Throughout the ECE1779 curriculum, we explored various orchestration tools, including **Docker Swarm**. While Swarm provided a user-friendly introduction to container management and is excellent for rapid prototyping, we chose to deploy the final version of **FindIt** using **Kubernetes (DOKS)**.
+
+- **Industrial Standards:** Kubernetes proved to be more "industrial-like," offering robust features for self-healing, rolling updates, and complex state management that are essential for production environments.
+- **Predictability:** Once the Kubernetes manifests and CI/CD workflows were aligned, the deployment process became substantially more predictable and easier to reason about than ad-hoc server updates.
+
+#### 3. Conclusion
+
+To conclude, **FindIt** demonstrates how a well-orchestrated, cloud-native approach can transform a simple campus problem into a robust, stateful service. It serves as a practical application of modern infrastructure practices, proving that while the learning curve for tools like Kubernetes is steep, the scalability and reliability they provide are unmatched.
