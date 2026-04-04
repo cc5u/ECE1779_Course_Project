@@ -1,31 +1,77 @@
 import {useState, useRef, useEffect} from 'react';
 import {LogOut, Mail} from 'lucide-react';
 import {useNavigate} from 'react-router';
+import { getAuthenticatedWebSocketUrl, getProfile } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { getProfile } from '../lib/api';
 
 export function ProfileDropdown() {
     const [isOpen, setIsOpen] = useState(false); // State to track dropdown visibility
     const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown element
     const navigate = useNavigate(); // Hook for navigation
     const { session, clearSession } = useAuth();
-    const [reportCount, setReportCount] = useState(0);
+    const [activeLostCount, setActiveLostCount] = useState(0);
+    const [foundCount, setFoundCount] = useState(0);
 
     useEffect(() => {
-      async function loadProfile() {
-        if (!session?.token) {
-          return;
-        }
+      if (!session?.token) {
+        setActiveLostCount(0);
+        setFoundCount(0);
+        return;
+      }
 
+      let cancelled = false;
+
+      async function loadProfileSummary() {
         try {
           const profile = await getProfile();
-          setReportCount(profile._count?.reports ?? 0);
+
+          if (cancelled) {
+            return;
+          }
+
+          setActiveLostCount(profile.reportStatusCounts?.activeLost ?? profile._count?.reports ?? 0);
+          setFoundCount(profile.reportStatusCounts?.found ?? 0);
         } catch {
-          setReportCount(0);
+          if (!cancelled) {
+            setActiveLostCount(0);
+            setFoundCount(0);
+          }
         }
       }
 
-      void loadProfile();
+      void loadProfileSummary();
+
+      const socket = new WebSocket(getAuthenticatedWebSocketUrl(session.token));
+
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: 'subscribe', channel: 'reports' }));
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as { type?: string };
+
+          if (
+            payload.type === 'report_created' ||
+            payload.type === 'report_updated' ||
+            payload.type === 'report_deleted'
+          ) {
+            void loadProfileSummary();
+          }
+        } catch {
+          // Ignore malformed websocket events.
+        }
+      };
+
+      return () => {
+        cancelled = true;
+
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'unsubscribe', channel: 'reports' }));
+        }
+
+        socket.close();
+      };
     }, [session?.token]);
 
     const initials = session?.user.displayName
@@ -97,11 +143,11 @@ export function ProfileDropdown() {
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="grid grid-cols-2 gap-4 text-center">
               <div>
-                <div className="text-2xl font-semibold text-gray-900">{reportCount}</div>
+                <div className="text-2xl font-semibold text-gray-900">{activeLostCount}</div>
                 <div className="text-xs text-gray-500">Lost Items</div>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-gray-900">0</div>
+                <div className="text-2xl font-semibold text-gray-900">{foundCount}</div>
                 <div className="text-xs text-gray-500">Found Items</div>
               </div>
             </div>

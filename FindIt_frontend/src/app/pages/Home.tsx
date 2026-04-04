@@ -113,7 +113,7 @@ export function Home() {
             return;
         }
 
-        if (report.owner?.id === currentUserId || report.status === 'found' || report.status === 'archived') {
+        if (report.owner?.id === currentUserId || !isReportAcceptingSightings(report.status)) {
             return;
         }
 
@@ -148,6 +148,9 @@ export function Home() {
     const closeChatModal = () => {
         setChatReport(null);
     };
+
+    const isReportAcceptingSightings = (status: LostReport['status']) =>
+        status === 'lost' || status === 'possibly_found';
 
     const handleFoundSubmit = async ({ address, description, files }: FoundItemSubmission) => {
         if (!selectedReport) {
@@ -246,11 +249,10 @@ export function Home() {
             }
 
             const matchingReport = lostReports.find((report) => report.id === pin.id);
-            const canReportFound =
-                Boolean(matchingReport) &&
-                matchingReport?.owner?.id !== currentUserId &&
-                matchingReport?.status !== 'found' &&
-                matchingReport?.status !== 'archived';
+            const canReportFound = matchingReport
+                ? matchingReport.owner?.id !== currentUserId &&
+                  isReportAcceptingSightings(matchingReport.status)
+                : false;
             const canMessageOwner = Boolean(
                 matchingReport &&
                     session?.token &&
@@ -370,8 +372,7 @@ export function Home() {
                                             actions={
                                                 session?.token &&
                                                 report.owner?.id !== currentUserId &&
-                                                report.status !== 'found' &&
-                                                report.status !== 'archived' ? (
+                                                isReportAcceptingSightings(report.status) ? (
                                                     <button
                                                         type="button"
                                                         onClick={() => openChatModal(report)}

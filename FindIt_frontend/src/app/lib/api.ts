@@ -218,6 +218,20 @@ export interface AuthResponseData {
   token: string;
 }
 
+export interface ProfileResponse extends AuthUser {
+  _count?: {
+    reports: number;
+    sightings: number;
+  };
+  reportStatusCounts?: {
+    lost: number;
+    possibly_found: number;
+    found: number;
+    archived: number;
+    activeLost: number;
+  };
+}
+
 export class ApiError extends Error {
   status: number;
   details?: string[];
@@ -461,7 +475,7 @@ export async function register(payload: RegisterPayload): Promise<AuthSession> {
 }
 
 export async function getProfile() {
-  const response = await request<AuthUser & { _count?: { reports: number; sightings: number } }>("/auth/profile", {}, true);
+  const response = await request<ProfileResponse>("/auth/profile", {}, true);
   return response.data;
 }
 
