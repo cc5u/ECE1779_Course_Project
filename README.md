@@ -217,7 +217,7 @@ FindIt provides an end-to-end workflow for **reporting, browsing, and resolving 
 
    - **Cluster Monitoring:**
 
-     Beyond deployment automation, the production environment now includes monitoring support. We installed `kube-state-metrics` in the cluster and deployed Prometheus and Grafana in a dedicated `monitoring` namespace. This allows us to inspect workload state, query cluster metrics, and review dashboard-based resource trends in a more production-oriented way.
+     We installed `kube-state-metrics` in the cluster and deployed Prometheus and Grafana in a dedicated `monitoring` namespace. This allows us to inspect workload state, query cluster metrics, and review dashboard-based resource trends in a more production-oriented way.
 
    - **Automated CI/CD:**
 
