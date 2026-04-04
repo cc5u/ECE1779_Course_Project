@@ -3,6 +3,7 @@ name: frontend-k8s-cicd
 on:
   push:
     branches:
+      - main
       - k8s-findit
     paths:
       - "FindIt_frontend/**"
@@ -51,7 +52,7 @@ jobs:
 
   deploy-frontend:
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/k8s-findit'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/k8s-findit')
     runs-on: ubuntu-latest
     env:
       IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-frontend

@@ -3,6 +3,7 @@ name: backend-k8s-cicd
 on:
   push:
     branches:
+      - main
       - k8s-findit
     paths:
       - "findit_backend/**"
@@ -50,7 +51,7 @@ jobs:
   deploy-staging:
     name: deploy-backend-to-k8s
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/k8s-findit'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/k8s-findit')
     runs-on: ubuntu-latest
     environment: staging
     env:
