@@ -1,16 +1,18 @@
-name: backend-k8s-cicd
+name: frontend-k8s-cicd
 
 on:
   push:
     branches:
       - k8s-findit
     paths:
-      - "findit_backend/**"
-      - ".github/workflows/backend-image.yml"
+      - "FindIt_frontend/**"
+      - "findit_backend/k8s/frontend.yaml"
+      - "findit_backend/k8s/ingress.yaml"
+      - ".github/workflows/frontend-image.yml"
   workflow_dispatch:
 
 concurrency:
-  group: backend-k8s-cicd-${{ github.ref }}
+  group: frontend-k8s-cicd-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -19,7 +21,7 @@ jobs:
     permissions:
       contents: read
     env:
-      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-backend
+      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-frontend
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -33,11 +35,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend image
+      - name: Build and push frontend image
         uses: docker/build-push-action@v7
         with:
-          context: ./findit_backend
-          file: ./findit_backend/Dockerfile
+          context: ./FindIt_frontend
+          file: ./FindIt_frontend/Dockerfile
           platforms: linux/amd64
           push: true
           tags: |
@@ -47,14 +49,12 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
 
-  deploy-staging:
-    name: deploy-backend-to-k8s
+  deploy-frontend:
     needs: build-and-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/k8s-findit'
     runs-on: ubuntu-latest
-    environment: staging
     env:
-      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-backend
+      IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/findit-frontend
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -73,23 +73,19 @@ jobs:
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_NAME }}
 
-      - name: Apply Kubernetes manifests
+      - name: Apply frontend and ingress manifests
         run: |
           kubectl apply -f ./findit_backend/k8s/namespace.yaml
-          kubectl apply -f ./findit_backend/k8s/backend-config.yaml
-          kubectl apply -f ./findit_backend/k8s/postgres.yaml
-          kubectl apply -f ./findit_backend/k8s/redis.yaml
-          kubectl apply -f ./findit_backend/k8s/backend.yaml
+          kubectl apply -f ./findit_backend/k8s/frontend.yaml
+          kubectl apply -f ./findit_backend/k8s/ingress.yaml
 
-      - name: Update backend image
+      - name: Update frontend image
         run: |
-          kubectl -n findit set image deployment/findit-backend \
-            findit-backend=${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
+          kubectl -n findit set image deployment/findit-frontend \
+            findit-frontend=${{ env.IMAGE_REPOSITORY }}:sha-${{ github.sha }}
 
-      - name: Verify backend rollout
+      - name: Verify frontend rollout
         run: |
-          kubectl -n findit rollout status deployment/redis --timeout=180s
-          kubectl -n findit rollout status deployment/postgres --timeout=180s
-          kubectl -n findit rollout status deployment/findit-backend --timeout=180s
+          kubectl -n findit rollout status deployment/findit-frontend --timeout=180s
           kubectl -n findit get pods
-          kubectl -n findit get svc
+          kubectl -n findit get ingress
