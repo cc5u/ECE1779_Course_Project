@@ -38,6 +38,7 @@ The infrastructure objective was equally important. We wanted the application to
 | Local Development | Docker Compose |
 | Production Orchestration | DigitalOcean Kubernetes (DOKS) |
 | Traffic Routing | NGINX Ingress Controller |
+| Monitoring | Prometheus + Grafana + kube-state-metrics |
 | CI/CD | GitHub Actions + Docker Hub |
 
 Our system was implemented as a **full-stack containerized web application** with a separately deployed frontend and backend, supported by stateful infrastructure services for persistence and real-time messaging.
@@ -118,7 +119,22 @@ Our system was implemented as a **full-stack containerized web application** wit
 
       PostgreSQL persistence is backed by a Kubernetes PersistentVolumeClaim using DigitalOcean block storage. This is important because the project is stateful and must preserve database contents across restarts and redeployments.
 
-5. CI/CD and Delivery Pipeline
+5. Monitoring and Observability:
+
+      We also integrated cluster-level monitoring into the deployed environment. Rather than using a single bundled monitoring stack, the current setup was assembled from separate components:
+
+      - **`kube-state-metrics`** installed in the `kube-system` namespace to expose Kubernetes object-state metrics
+      - **Grafana** installed in the `monitoring` namespace through the `grafana/grafana` Helm chart
+      - **Prometheus** installed in the `monitoring` namespace through the `prometheus-community/prometheus` Helm chart
+
+      This setup gives us both raw metrics endpoints and dashboard-based visualization.
+
+      - **Cluster visibility:** We can inspect pod, deployment, service, and namespace-level behavior through Kubernetes metrics.
+      - **Operational debugging:** Monitoring complements `kubectl logs`, `kubectl describe`, rollout checks, and backend health endpoints during deployment troubleshooting.
+      - **Dashboard-based review:** Grafana provides a more readable view of resource trends and workload health than raw command-line inspection alone.
+      - **Prometheus query support:** Prometheus gives us a central interface for scraping and querying cluster metrics exposed by installed exporters.
+
+6. CI/CD and Delivery Pipeline
 
    1. GitHub Actions:
 
@@ -197,6 +213,10 @@ FindIt provides an end-to-end workflow for **reporting, browsing, and resolving 
    - **Rolling Updates:**
 
      Replicated frontend and backend deployments allow the system to update more safely than a single-container replacement approach.
+
+   - **Cluster Monitoring:**
+
+     Beyond deployment automation, the production environment now includes monitoring support. We installed `kube-state-metrics` in the cluster and deployed Prometheus and Grafana in a dedicated `monitoring` namespace. This allows us to inspect workload state, query cluster metrics, and review dashboard-based resource trends in a more production-oriented way.
 
    - **Automated CI/CD:**
 
