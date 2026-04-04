@@ -313,43 +313,43 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
    ```bash
    kubectl apply -f k8s/namespace.yaml
    ```
-### **Step 2: Configure Secrets**
-
-You must create your secrets **before** deploying the database or backend. Use the template provided in the next section.
-
-```bash
-# Apply your populated secret.yaml
-kubectl apply -f k8s/secret.yaml
-```
-
-### **Step 3: Deploy the Data Layer**
-
-Deploy the stateful components first to ensure the backend can connect upon startup.
-
-```bash
-kubectl apply -f k8s/postgres.yaml
-kubectl apply -f k8s/redis.yaml
-```
-
-*Note: Ensure your PersistentVolumeClaims (PVCs) are bound successfully using `kubectl get pvc -n findit`.*
-
-### **Step 4: Deploy Application Services**
-
-Apply the configuration and then the application logic.
-
-```bash
-kubectl apply -f k8s/backend-config.yaml
-kubectl apply -f k8s/backend.yaml
-kubectl apply -f k8s/frontend.yaml
-```
-
-### **Step 5: Configure Routing (Ingress)**
-
-Apply the Ingress rules to expose the application to the internet.
-
-```bash
-kubectl apply -f k8s/ingress.yaml
-```
+   ### **Step 2: Configure Secrets**
+   
+   You must create your secrets **before** deploying the database or backend. Use the template provided in the next section.
+   
+   ```bash
+   # Apply your populated secret.yaml
+   kubectl apply -f k8s/secret.yaml
+   ```
+   
+   ### **Step 3: Deploy the Data Layer**
+   
+   Deploy the stateful components first to ensure the backend can connect upon startup.
+   
+   ```bash
+   kubectl apply -f k8s/postgres.yaml
+   kubectl apply -f k8s/redis.yaml
+   ```
+   
+   *Note: Ensure your PersistentVolumeClaims (PVCs) are bound successfully using `kubectl get pvc -n findit`.*
+   
+   ### **Step 4: Deploy Application Services**
+   
+   Apply the configuration and then the application logic.
+   
+   ```bash
+   kubectl apply -f k8s/backend-config.yaml
+   kubectl apply -f k8s/backend.yaml
+   kubectl apply -f k8s/frontend.yaml
+   ```
+   
+   ### **Step 5: Configure Routing (Ingress)**
+   
+   Apply the Ingress rules to expose the application to the internet.
+   
+   ```bash
+   kubectl apply -f k8s/ingress.yaml
+   ```
 
 4. Secret Management Template  
     
