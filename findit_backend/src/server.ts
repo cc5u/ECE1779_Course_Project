@@ -50,11 +50,12 @@ const allowedOrigins = Array.from(
     ].filter((origin): origin is string => Boolean(origin))
   )
 );
+const allowAnyOrigin = allowedOrigins.includes("*");
 
 // ─── Global Middleware ───────────────────────────────
 app.use(cors({
   origin(origin, callback) {
-    if (allowedOrigins.length === 0 || !origin || allowedOrigins.includes(origin)) {
+    if (allowAnyOrigin || allowedOrigins.length === 0 || !origin || allowedOrigins.includes(origin)) {
       callback(null, true);
       return;
     }
