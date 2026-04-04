@@ -220,7 +220,13 @@ The application is organized around three main user workflows: **report lost ite
 
    An unauthenticated user can still visit the home page at `/home`, but browsing is limited to viewing the map.
 
-_[Image for the welcome page]_
+<table align="center">
+  <tr>
+    <td valign="top" width="48%">
+      <img src="images/welcome.png?raw=true" alt="Training metrics" width="100%" />
+      <br /><br />
+    </td>
+</table>
 
  2. Reporting a Lost Item
 
