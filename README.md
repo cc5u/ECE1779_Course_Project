@@ -20,13 +20,195 @@ Existing technological solutions also have limitations. Apple’s Find My networ
 To address this gap, we propose a lost-and-found web application tailored specifically to the UofT campus. Target users include students, staff, and basic administrators who can moderate spam and abuse. Restricting the scope to a defined university community reduces spam and abuse risks, enables clearer moderation mechanisms, and keeps the system manageable within the project timeline. The proposed cloud-native solution will enable users to report lost items, visualize them on a map, upload potential sightings, and communicate in a structured environment in real-time.
 
 ## Objectives
+Our primary objective was to design and deploy a stateful, scalable, and resilient lost-and-found platform in a production-like cloud environment. The final system combines a React frontend, a Node.js and Express backend, PostgreSQL for persistence, Redis-backed real-time messaging support, and DigitalOcean Spaces for image storage.
+
+The infrastructure objective was equally important. We wanted the application to be fully containerized, reproducible in local development with Docker Compose, and deployable to DigitalOcean Kubernetes with rolling updates and automated delivery through GitHub Actions. This required us to address service discovery, ingress routing, health checks, persistent volumes, secrets management, and deployment automation rather than treating the project as only an application-layer exercise.
 
 
 ## Technical Stack
+| Layer | Technology |
+| --- | --- |
+| Frontend Framework | React + Vite |
+| UI Styling | Tailwind CSS |
+| Backend Runtime | Node.js |
+| Backend Framework | Express + TypeScript |
+| Database | PostgreSQL + Prisma |
+| Real-Time Messaging | WebSocket + Redis |
+| File Storage | DigitalOcean Spaces |
+| Local Development | Docker Compose |
+| Production Orchestration | DigitalOcean Kubernetes (DOKS) |
+| Traffic Routing | NGINX Ingress Controller |
+| CI/CD | GitHub Actions + Docker Hub |
+
+Our system was implemented as a **full-stack containerized web application** with a separately deployed frontend and backend, supported by stateful infrastructure services for persistence and real-time messaging.
+
+1. System Framework and Programming Model
+
+   1. React + Vite:
+
+      We adopted a React frontend built with Vite to keep the user interface fast, modular, and easy to iterate on. This approach works well for a highly interactive application where users browse map-based reports, upload data, and interact with real-time messaging flows.
+
+      - **Fast development workflow:** Vite provides a lightweight development server and efficient frontend build pipeline.
+      - **Component-driven UI:** React lets us organize the interface into reusable components for reports, chat, navigation, and forms.
+      - **Clear deployment separation:** Keeping the frontend separate from the backend fits naturally with the Kubernetes deployment model, where each part of the system can scale and roll out independently.
+
+   2. Node.js + Express + TypeScript:
+
+      The backend is implemented with TypeScript on top of Node.js using Express. This combination gave us a familiar web API model while keeping runtime behavior straightforward for Docker and Kubernetes deployment.
+
+      - **Node.js runtime:** Handles the execution of the backend server in both development and production containers.
+      - **Express framework:** Provides the REST API structure, middleware flow, file upload handling, and route organization.
+      - **TypeScript reliability:** Improves maintainability by surfacing type errors early, especially across authentication, reports, sightings, and messaging logic.
+
+      This backend structure also supports WebSocket integration and Prisma-based database access without requiring a separate application platform.
+
+2. Frontend and User Interface
+
+   The frontend was designed to support a map-first lost-and-found workflow rather than a static form-based dashboard. Users need to browse reports visually, create posts with contextual details, and move through the app smoothly on both desktop and laptop-sized displays.
+
+   1. React:
+
+      React serves as the core UI library and enables a declarative, state-driven interface. It is used to manage report creation flows, authentication state, report browsing, and live chat interactions in a structured way.
+
+   2. Tailwind CSS:
+
+      Tailwind CSS made it easier to build the interface quickly while still maintaining control over layout, spacing, typography, and component states. This was useful because the project evolved frequently, and utility-based styling reduced the cost of iteration.
+
+   3. Map Interface:
+
+      The frontend includes map functionality for both browsing and reporting. This is central to the product idea because location is one of the most important dimensions of a lost-and-found workflow on a large campus.
+
+   4. Production Frontend Container:
+
+      In production, the frontend is built into a Docker image and served through an Nginx-based static container. In the Kubernetes deployment, this frontend container is exposed behind ingress rather than being copied directly onto a VM filesystem.
+
+3. Data Management and Storage
+
+   1. PostgreSQL:
+
+      PostgreSQL is the primary relational database for the system. It stores core application state such as users, lost reports, sightings, and messages. We selected a relational model because these entities have meaningful relationships and require consistent state over time.
+
+   2. Prisma:
+
+      Prisma is used as the ORM and schema management layer. It simplifies schema definition, migration tracking, and type-safe database access from the backend service. This reduces boilerplate and helps keep the backend logic aligned with the underlying data model.
+
+   3. Redis:
+
+      Redis is used to support WebSocket pub/sub behavior across multiple backend replicas. Without a shared messaging layer, each backend pod would behave independently, making real-time communication inconsistent when traffic is distributed across replicas.
+
+   4. DigitalOcean Spaces:
+
+      User-uploaded images are stored through DigitalOcean Spaces instead of storing large assets directly in the application container. This keeps file handling more scalable and separates durable media storage from stateless service containers.
+
+4. Orchestration and Infrastructure
+
+   1. Docker Compose:
+
+      Local development uses Docker Compose to run PostgreSQL, Redis, and the backend in a reproducible way. This gives the team a shared development baseline and reduces setup drift across machines.
+
+   2. Kubernetes on DigitalOcean:
+
+      Production deployment runs on DigitalOcean Kubernetes. Frontend, backend, PostgreSQL, and Redis each run as separate Kubernetes workloads, which makes the deployed system closer to a real cloud-native environment than a single-server setup.
+
+   3. NGINX Ingress Controller:
+
+      External traffic is routed through Kubernetes ingress. This routing layer sends `/` to the frontend service and forwards `/api`, `/ws`, and `/uploads` to the backend service, replacing the older VM-based reverse proxy model.
+
+   4. Persistent Storage:
+
+      PostgreSQL persistence is backed by a Kubernetes PersistentVolumeClaim using DigitalOcean block storage. This is important because the project is stateful and must preserve database contents across restarts and redeployments.
+
+5. CI/CD and Delivery Pipeline
+
+   1. GitHub Actions:
+
+      The project uses GitHub Actions for automated build and deployment workflows. Separate workflows handle frontend and backend image delivery.
+
+   2. Docker Hub:
+
+      Built images are pushed to Docker Hub with both `latest` and commit-specific SHA tags. This makes each deployment traceable to a Git revision.
+
+   3. Kubernetes Rollout Automation:
+
+      After images are pushed, the workflows authenticate to DigitalOcean, apply the Kubernetes manifests, update deployment images, and wait for rollout success. This provides a repeatable deployment path instead of manual image replacement.
+
+Overall, this stack was selected to balance **development efficiency, operational clarity, cloud-native realism, and maintainability**. React and Tailwind made it practical to build the user-facing product, Node.js and Express supported a flexible backend, PostgreSQL and Prisma handled structured state, Redis enabled real-time synchronization across replicas, and Kubernetes plus GitHub Actions turned the project into a complete deployment-oriented system.
 
 
 ## Features
+FindIt provides an end-to-end workflow for **reporting, browsing, and resolving lost-item cases** in a campus setting. The platform is designed not only to collect reports, but also to support ongoing communication and structured status tracking after a report is created.
 
+1. Frontend and User Interaction Layer
+
+   The frontend serves as the main interaction hub where users create reports, browse the campus map, inspect details, and communicate with other users.
+
+   - **Map-Based Report Discovery:**
+
+     FindIt allows users to create lost-item reports tied to physical locations. The frontend uses map components to let users browse reports visually and associate submissions with a specific place on campus. This makes browsing more intuitive than a plain text list and aligns with the real campus use case.
+
+   - **Structured Report Creation:**
+
+     The report creation flow captures item details, location, and images in a consistent format. This improves data quality and makes reports easier for other users to interpret.
+
+   - **User-Centered Navigation:**
+
+     The interface is organized around common user actions such as posting a report, reviewing active reports, checking personal report status, and responding to a case through chat.
+
+2. Backend Logic and Execution Layer
+
+   The backend coordinates authentication-aware requests, persistence, image handling, and real-time messaging.
+
+   - **REST API Layer:**
+
+     The backend exposes routes for application logic such as reports, sightings, health checks, uploads, and messaging-related operations.
+
+   - **WebSocket Messaging - Real-Time Communication:**
+
+     The backend exposes a WebSocket endpoint at /ws, allowing users to communicate about a report in near real time. Redis support is used so that multiple backend replicas can share messaging events rather than behaving like isolated servers..
+
+   - **Health and Rollout Support:**
+
+     The `/api/health` endpoint is used both for operational checks and Kubernetes readiness/liveness probes, making it part of the actual deployment reliability model rather than just a development convenience.
+
+3. Data Storage and Cloud Infrastructure
+
+   This layer ensures that the system remains stateful, resilient, and production-like.
+
+   - **Persistent Relational State:**
+
+     PostgreSQL serves as the source of truth for users, reports, sightings, and chat-related data. This state is preserved across restarts using persistent volume support in Kubernetes.
+
+   - **Cloud-Based Image Storage:**
+
+     The system supports image uploads for reports and sightings. Image uploads are designed to work with DigitalOcean Spaces so that uploaded content is stored outside the application container lifecycle, while the backend can also fall back to local /uploads storage when object storage is not configured.
+
+   - **Containerized Deployment Model:**
+
+     The frontend, backend, PostgreSQL, and Redis are all containerized, which makes the system easier to build, ship, and redeploy in a consistent way.
+
+4. Deployment and DevOps Features
+
+   The project also includes features at the infrastructure and deployment level, not just the application level.
+
+   - **Kubernetes Ingress Routing:**
+
+     Requests are split cleanly between frontend and backend through ingress path routing.
+
+   - **Rolling Updates:**
+
+     Replicated frontend and backend deployments allow the system to update more safely than a single-container replacement approach.
+
+   - **Automated CI/CD:**
+
+     GitHub Actions builds and publishes container images, reapplies manifests, and updates deployments automatically when changes are pushed to the active deployment branch.
+    
+    On pushes to the active Kubernetes branch, GitHub Actions builds versioned Docker images, pushes them to Docker Hub, updates Kubernetes deployments to the new image tag, and verifies rollout status. This gives the project a repeatable CI/CD path rather than a manual redeploy process.
+
+Overall, the user accesses the FindIt application through a public ingress endpoint. Requests for `/` are routed to the frontend service, while `/api`, `/ws`, and `/uploads` are routed to the backend service. The backend communicates internally with PostgreSQL and Redis using Kubernetes service discovery. Configuration that is safe to expose structurally is stored in ConfigMaps, while sensitive runtime values such as database passwords and JWT secrets are injected through Kubernetes Secrets.
+
+This architecture reflects a clean separation of concerns. The frontend container is responsible only for serving the built SPA assets. Application logic, authentication, uploads, and WebSocket handling live in the backend service. Stateful infrastructure components are isolated behind their own services so that they can be deployed, restarted, and diagnosed independently from the application layer.
+
+FindIt provides an end-to-end workflow for **reporting, browsing, and resolving lost-item cases** in a campus setting. The platform is designed not only to collect reports, but also to support ongoing communication and structured status tracking after a report is created.
 
 ## User Guide
 
