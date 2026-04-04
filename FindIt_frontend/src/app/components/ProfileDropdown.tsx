@@ -1,5 +1,5 @@
 import {useState, useRef, useEffect} from 'react';
-import {Settings, LogOut, Mail, Phone} from 'lucide-react';
+import {Settings, LogOut, Mail} from 'lucide-react';
 import {Link, useNavigate} from 'react-router';
 import { useAuth } from '../lib/auth';
 import { getProfile } from '../lib/api';
@@ -87,16 +87,10 @@ export function ProfileDropdown() {
 
           {/* Profile Details */}
           <div className="px-4 py-3 border-b border-gray-200">
-            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="w-4 h-4 text-gray-400" />
                 <span className="text-gray-700">{session?.user.uoftEmail || 'Not signed in'}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-700">Not provided</span>
-              </div>
-            </div>
           </div>
 
           {/* Quick Stats */}

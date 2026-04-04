@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {Link, useLocation, useNavigate } from "react-router";
-import { MapPin, Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
+import { MapPin, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -17,7 +17,6 @@ export default function Register() {
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
-        phone:'',
         password: '',
         confirmPassword: '',
     }); // State to hold form data
@@ -122,25 +121,6 @@ export default function Register() {
                             </div>
                         </div>
 
-                        {/* Phone Field */}
-                        <div className="space-y-2">
-                            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                                Phone number <span className="text-gray-500">(optional)</span>
-                            </Label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <Input
-                                    id="phone"
-                                    name="phone"
-                                    type="tel"
-                                    placeholder="+1 (555) 000-0000"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                        </div>
-
                         {/* Password Field */}
                         <div className="space-y-2">
                             <Label htmlFor="password" className="text-sm font-medium text-gray-700">
@@ -206,26 +186,6 @@ export default function Register() {
                             </div>
                         </div>
 
-                        {/* Terms Checkbox */}
-                        <div className="flex items-start">
-                            <input
-                                id="terms"
-                                type="checkbox"
-                                className="w-4 h-4 mt-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                required
-                            />
-                            <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
-                                I agree to the{' '}
-                                <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-                                Terms of Service
-                                </a>{' '}
-                                and{' '}
-                                <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-                                    Privacy Policy
-                                </a>
-                            </label>
-                        </div>
-
                         {/* Submit Button */}
                         <Button
                             type="submit"
@@ -251,7 +211,7 @@ export default function Register() {
                     </div>
                 </div>
 
-                {/* Footer */}
+                {/* Footer
                 <p className="text-center text-sm text-gray-500 mt-8">
                     Protected by reCAPTCHA and subject to the FindIt{' '}
                     <a href="#" className="text-blue-600 hover:text-blue-700">
@@ -261,7 +221,7 @@ export default function Register() {
                     <a href="#" className="text-blue-600 hover:text-blue-700">
                         Privacy Policy
                     </a>
-                </p>
+                </p> */}
             </div>
         </div>
     );

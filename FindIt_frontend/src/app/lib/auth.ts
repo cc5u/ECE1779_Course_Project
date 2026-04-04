@@ -18,14 +18,66 @@ const AUTH_CHANGE_EVENT = "findit:auth-change";
 let currentRawSession: string | null = null;
 let currentSession: AuthSession | null = null;
 
-function syncSessionFromStorage() {
+function getAuthStorage() {
   if (typeof window === "undefined") {
-    currentRawSession = null;
-    currentSession = null;
     return null;
   }
 
-  const nextRawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function isAuthUser(value: unknown): value is AuthUser {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const user = value as Partial<AuthUser>;
+  return (
+    typeof user.id === "string" &&
+    typeof user.uoftEmail === "string" &&
+    typeof user.displayName === "string"
+  );
+}
+
+function normalizeSession(value: unknown): AuthSession | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const session = value as Partial<AuthSession>;
+  if (typeof session.token !== "string" || !session.token.trim() || !isAuthUser(session.user)) {
+    return null;
+  }
+
+  return {
+    token: session.token,
+    user: {
+      id: session.user.id,
+      uoftEmail: session.user.uoftEmail,
+      displayName: session.user.displayName,
+      createdAt: session.user.createdAt,
+    },
+  };
+}
+
+function clearCachedSession() {
+  currentRawSession = null;
+  currentSession = null;
+}
+
+function syncSessionFromStorage() {
+  const storage = getAuthStorage();
+
+  if (!storage) {
+    clearCachedSession();
+    return null;
+  }
+
+  const nextRawSession = storage.getItem(SESSION_STORAGE_KEY);
 
   if (nextRawSession === currentRawSession) {
     return currentSession;
@@ -39,12 +91,17 @@ function syncSessionFromStorage() {
   }
 
   try {
-    currentSession = JSON.parse(nextRawSession) as AuthSession;
+    const parsedSession = normalizeSession(JSON.parse(nextRawSession));
+
+    if (!parsedSession) {
+      throw new Error("Invalid auth session");
+    }
+
+    currentSession = parsedSession;
     return currentSession;
   } catch {
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    currentRawSession = null;
-    currentSession = null;
+    storage.removeItem(SESSION_STORAGE_KEY);
+    clearCachedSession();
     return null;
   }
 }
@@ -89,17 +146,29 @@ export function getStoredSession(): AuthSession | null {
 }
 
 export function saveSession(session: AuthSession) {
-  const serializedSession = JSON.stringify(session);
+  const normalizedSession = normalizeSession(session);
+  const storage = getAuthStorage();
+
+  if (!normalizedSession) {
+    throw new Error("Cannot save an invalid auth session.");
+  }
+
+  if (!storage) {
+    throw new Error("Local storage is unavailable.");
+  }
+
+  const serializedSession = JSON.stringify(normalizedSession);
+  storage.setItem(SESSION_STORAGE_KEY, serializedSession);
   currentRawSession = serializedSession;
-  currentSession = session;
-  window.localStorage.setItem(SESSION_STORAGE_KEY, serializedSession);
+  currentSession = normalizedSession;
   emitAuthChange();
 }
 
 export function clearSession() {
-  currentRawSession = null;
-  currentSession = null;
-  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  const storage = getAuthStorage();
+
+  storage?.removeItem(SESSION_STORAGE_KEY);
+  clearCachedSession();
   emitAuthChange();
 }
 

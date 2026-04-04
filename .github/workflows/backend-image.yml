@@ -76,11 +76,11 @@ jobs:
 
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f ./findit_backend/k8s/namespace.yaml
-          kubectl apply -f ./findit_backend/k8s/backend-config.yaml
-          kubectl apply -f ./findit_backend/k8s/postgres.yaml
-          kubectl apply -f ./findit_backend/k8s/redis.yaml
-          kubectl apply -f ./findit_backend/k8s/backend.yaml
+          kubectl apply -f ./deploy/k8s/namespace.yaml
+          kubectl apply -f ./deploy/k8s/backend-config.yaml
+          kubectl apply -f ./deploy/k8s/postgres.yaml
+          kubectl apply -f ./deploy/k8s/redis.yaml
+          kubectl apply -f ./deploy/k8s/backend.yaml
 
       - name: Update backend image
         run: |

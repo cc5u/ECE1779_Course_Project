@@ -7,8 +7,8 @@ on:
       - k8s-findit
     paths:
       - "FindIt_frontend/**"
-      - "findit_backend/k8s/frontend.yaml"
-      - "findit_backend/k8s/ingress.yaml"
+      - "deploy/k8s/frontend.yaml"
+      - "deploy/k8s/ingress.yaml"
       - ".github/workflows/frontend-image.yml"
   workflow_dispatch:
 
@@ -76,9 +76,9 @@ jobs:
 
       - name: Apply frontend and ingress manifests
         run: |
-          kubectl apply -f ./findit_backend/k8s/namespace.yaml
-          kubectl apply -f ./findit_backend/k8s/frontend.yaml
-          kubectl apply -f ./findit_backend/k8s/ingress.yaml
+          kubectl apply -f ./deploy/k8s/namespace.yaml
+          kubectl apply -f ./deploy/k8s/frontend.yaml
+          kubectl apply -f ./deploy/k8s/ingress.yaml
 
       - name: Update frontend image
         run: |

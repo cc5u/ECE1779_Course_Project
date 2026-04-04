@@ -261,7 +261,7 @@ async function request<T>(path: string, init: RequestInit = {}, auth = false): P
   }
 
   if (!response.ok || !payload?.success) {
-    if (response.status === 401) {
+    if (auth && response.status === 401) {
       clearSession();
     }
 

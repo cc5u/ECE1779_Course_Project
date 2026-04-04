@@ -4,7 +4,6 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { Home } from "./pages/Home";
 import ReportLostItem from "./pages/ReportLostItem";
-import Settings from "./pages/Setting";
 
 export const router = createBrowserRouter([
     {
@@ -34,11 +33,7 @@ export const router = createBrowserRouter([
             {
                 path: "/report",
                 Component: ReportLostItem,
-            },
-            {
-                path: "/settings",
-                Component: Settings,
-            },
+            }
         ],
     },
 ]);
