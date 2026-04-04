@@ -13,7 +13,7 @@ export async function createSighting(reportId: string, finderId: string, input: 
   if (!report) {
     throw new AppError("Report not found", 404);
   }
-  if (report.status === "archived" || report.status === "found") {
+  if (report.status !== "lost" && report.status !== "possibly_found") {
     throw new AppError("Cannot add sightings to a resolved or archived report", 400);
   }
   if (report.ownerId === finderId) {

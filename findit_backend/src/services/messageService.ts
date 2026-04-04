@@ -80,44 +80,54 @@ export async function getMessagesByReport(reportId: string, userId: string) {
 }
 
 /**
- * Get all conversations for a user (grouped by report)
+ * Get all conversations for a user (grouped by report + participant)
  */
 export async function getUserConversations(userId: string) {
-  // Find all distinct report IDs where user has messages
-  const reports = await prisma.message.findMany({
+  const messages = await prisma.message.findMany({
     where: {
       OR: [{ senderId: userId }, { receiverId: userId }],
     },
-    select: {
-      reportId: true,
+    include: {
+      sender: {
+        select: { id: true, displayName: true },
+      },
+      receiver: {
+        select: { id: true, displayName: true },
+      },
+      report: {
+        select: { id: true, itemName: true, status: true },
+      },
     },
-    distinct: ["reportId"],
+    orderBy: { createdAt: "desc" },
   });
 
-  // For each report, get the latest message and report info
-  const conversations = await Promise.all(
-    reports.map(async ({ reportId }) => {
-      const [latestMessage, report] = await Promise.all([
-        prisma.message.findFirst({
-          where: {
-            reportId,
-            OR: [{ senderId: userId }, { receiverId: userId }],
-          },
-          include: {
-            sender: { select: { id: true, displayName: true } },
-            receiver: { select: { id: true, displayName: true } },
-          },
-          orderBy: { createdAt: "desc" },
-        }),
-        prisma.lostReport.findUnique({
-          where: { id: reportId },
-          select: { id: true, itemName: true, status: true },
-        }),
-      ]);
+  const conversations = new Map<string, {
+    report: { id: string; itemName: string; status: "lost" | "possibly_found" | "found" | "archived" } | null;
+    participant: { id: string; displayName: string } | null;
+    latestMessage: typeof messages[number];
+    unreadCount: number;
+  }>();
 
-      return { report, latestMessage };
-    })
-  );
+  for (const message of messages) {
+    const participant = message.senderId === userId ? message.receiver : message.sender;
+    const participantId = participant?.id;
 
-  return conversations;
+    if (!participantId) {
+      continue;
+    }
+
+    const key = `${message.reportId}:${participantId}`;
+    if (conversations.has(key)) {
+      continue;
+    }
+
+    conversations.set(key, {
+      report: message.report,
+      participant,
+      latestMessage: message,
+      unreadCount: 0,
+    });
+  }
+
+  return Array.from(conversations.values());
 }

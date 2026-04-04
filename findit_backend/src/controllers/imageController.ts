@@ -1,6 +1,8 @@
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../types";
 import * as imageService from "../services/imageService";
+import * as reportService from "../services/reportService";
+import { broadcastToReport, broadcastToReports } from "../utils/websocket";
 
 // POST /api/reports/:reportId/images
 export async function uploadReportImages(req: AuthRequest, res: Response, next: NextFunction) {
@@ -17,6 +19,20 @@ export async function uploadReportImages(req: AuthRequest, res: Response, next: 
       req.user!.id,
       files
     );
+
+    const report = await reportService.getReportById(reportId);
+
+    broadcastToReports({
+      type: "report_updated",
+      reportId,
+      data: report,
+    });
+
+    broadcastToReport(reportId, {
+      type: "report_updated",
+      reportId,
+      data: report,
+    });
 
     res.status(201).json({ success: true, data: images });
   } catch (err) {

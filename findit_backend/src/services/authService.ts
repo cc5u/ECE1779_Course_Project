@@ -75,25 +75,51 @@ export async function login(input: LoginInput) {
 }
 
 export async function getProfile(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      uoftEmail: true,
-      displayName: true,
-      createdAt: true,
-      _count: {
-        select: {
-          reports: true,
-          sightings: true,
+  const [user, reportStatusCounts] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        uoftEmail: true,
+        displayName: true,
+        createdAt: true,
+        _count: {
+          select: {
+            reports: true,
+            sightings: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.lostReport.groupBy({
+      by: ["status"],
+      where: { ownerId: userId },
+      _count: {
+        _all: true,
+      },
+    }),
+  ]);
 
   if (!user) {
     throw new AppError("User not found", 404);
   }
 
-  return user;
+  const countsByStatus = {
+    lost: 0,
+    possibly_found: 0,
+    found: 0,
+    archived: 0,
+  };
+
+  for (const entry of reportStatusCounts) {
+    countsByStatus[entry.status] = entry._count._all;
+  }
+
+  return {
+    ...user,
+    reportStatusCounts: {
+      ...countsByStatus,
+      activeLost: countsByStatus.lost + countsByStatus.possibly_found,
+    },
+  };
 }

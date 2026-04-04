@@ -91,7 +91,6 @@ model Sighting {
 
   images SightingImage[]
 
-  @@unique([reportId, finderId])
   @@index([reportId])
   @@index([finderId])
   @@map("sightings")
