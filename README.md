@@ -234,7 +234,13 @@ The application is organized around three main user workflows: **report lost ite
 
    Users can also upload images optionally. The application accepts `.png`, `.webp`, `.jpg`, and `.jpeg` files. Newly created reports are broadcast in real time so all users can see them on the home page.
 
-_[Image for the create lost report window]_
+<table align="center">
+  <tr>
+    <td valign="top" width="48%">
+      <img src="images/lost_report.png?raw=true" alt="Training metrics" width="100%" />
+      <br /><br />
+    </td>
+</table>
 
  3. Browsing Reports
 
