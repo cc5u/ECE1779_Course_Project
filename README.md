@@ -265,23 +265,16 @@ _[Image of two users' chat window]_
 ### Local guide:
 
 1. Environment Setup
-    1. **Environment Configuration**: Clone the repo and create a `.env` file using the provided `.env.example`.
-    2. **Local Launch**: Run `docker-compose up --build` to launch the backend, PostgreSQL, and Redis locally.  
-    3. **Database Migration**: Run `npx prisma migrate dev` to sync the schema with the local containerized database.
-    4. **Testing**: Run the frontend and access it at `localhost:5173` and APIs will be displayed in the container’s logs
-        
-    
-    For local work, create a backend `.env` file based on `findit_backend/.env.example`.
+   **Environment Configuration**: 
+   Clone the repo and create a `.env` file using the provided `.env.example` in both `findit_backend` and `Findit_frontend`.
+   Entering the fields for backend `.env`, uncomment the `VITE_DEV_PROXY_TARGET`, `VITE_WS_BASE_URL`, and `VITE_DEV_PROXY_TARGET` and set those urls 
     
 2. Start the Local Stack
-    
     To run the backend dependencies locally, use Docker Compose from the backend directory:
-    
     ```bash
     cd findit_backend
     docker compose up --build
     ```
-    
     This starts:
     
     - PostgreSQL
@@ -295,15 +288,6 @@ _[Image of two users' chat window]_
     npm run dev
     ```
     
-3. Database Workflow
-    
-    Prisma is used for schema generation and local migration work. Common commands include:
-    
-    ```bash
-    npm run prisma:generate
-    npm run prisma:migrate
-    ```
-    
 4. Local Access
     
     Typical local endpoints are:
@@ -311,7 +295,6 @@ _[Image of two users' chat window]_
     - Frontend: `http://localhost:5173`
     - Backend health check: `http://localhost:3000/api/health`
     
-    The frontend defaults to same-origin API and WebSocket routing in production, but can also be configured through the Vite environment variables documented in FindIt_frontend/.env.example.
 ---
 ### CI/CD Workflow
 
