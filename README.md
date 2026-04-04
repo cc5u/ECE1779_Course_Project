@@ -262,7 +262,58 @@ _[Image of two users' chat window]_
 
 
 ## Development Guide
-## CI/CD Workflow
+### Local guide:
+
+1. Environment Setup
+    1. **Environment Configuration**: Clone the repo and create a `.env` file using the provided `.env.example`.
+    2. **Local Launch**: Run `docker-compose up --build` to launch the backend, PostgreSQL, and Redis locally.  
+    3. **Database Migration**: Run `npx prisma migrate dev` to sync the schema with the local containerized database.
+    4. **Testing**: Run the frontend and access it at `localhost:5173` and APIs will be displayed in the container’s logs
+        
+    
+    For local work, create a backend `.env` file based on `findit_backend/.env.example`.
+    
+2. Start the Local Stack
+    
+    To run the backend dependencies locally, use Docker Compose from the backend directory:
+    
+    ```bash
+    cd findit_backend
+    docker compose up --build
+    ```
+    
+    This starts:
+    
+    - PostgreSQL
+    - Redis
+    - Backend API
+    
+    The frontend can then be run separately from the `FindIt_frontend` directory:
+    
+    ```bash
+    npm install
+    npm run dev
+    ```
+    
+3. Database Workflow
+    
+    Prisma is used for schema generation and local migration work. Common commands include:
+    
+    ```bash
+    npm run prisma:generate
+    npm run prisma:migrate
+    ```
+    
+4. Local Access
+    
+    Typical local endpoints are:
+    
+    - Frontend: `http://localhost:5173`
+    - Backend health check: `http://localhost:3000/api/health`
+    
+    The frontend defaults to same-origin API and WebSocket routing in production, but can also be configured through the Vite environment variables documented in FindIt_frontend/.env.example.
+---
+### CI/CD Workflow
 
 The project uses two GitHub Actions workflows under .github/workflows:
 
@@ -284,7 +335,7 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
 
 ---
 
-## Kubernetes Deployment Guide
+### Kubernetes Deployment Guide
 
 1. Cluster Components
     
@@ -309,11 +360,11 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
     - ingress.yaml
 3. Step-by-Step Deployment Process
     
-    ### **Step 1: Apply the Namespace**
+    #### Step 1: Apply the Namespace
    ```bash
    kubectl apply -f k8s/namespace.yaml
    ```
-   ### **Step 2: Configure Secrets**
+   #### Step 2: Configure Secrets
    
    You must create your secrets **before** deploying the database or backend. Use the template provided in the next section.
    
@@ -322,7 +373,7 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
    kubectl apply -f k8s/secret.yaml
    ```
    
-   ### **Step 3: Deploy the Data Layer**
+   #### Step 3: Deploy the Data Layer
    
    Deploy the stateful components first to ensure the backend can connect upon startup.
    
@@ -333,7 +384,7 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
    
    *Note: Ensure your PersistentVolumeClaims (PVCs) are bound successfully using `kubectl get pvc -n findit`.*
    
-   ### **Step 4: Deploy Application Services**
+   #### Step 4: Deploy Application Services
    
    Apply the configuration and then the application logic.
    
@@ -343,7 +394,7 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
    kubectl apply -f k8s/frontend.yaml
    ```
    
-   ### **Step 5: Configure Routing (Ingress)**
+   #### Step 5: Configure Routing (Ingress)
    
    Apply the Ingress rules to expose the application to the internet.
    
@@ -355,7 +406,7 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
     
     We use the `stringData` field in our `secret.yaml`. This allows you to input plain-text values, which Kubernetes will automatically encode into Base64 upon application.
     
-    ### **`secret.yaml` Template**
+    #### **`secret.yaml` Template**
     
     ```yaml
     apiVersion: v1
@@ -388,7 +439,7 @@ This gives the team a reproducible build-and-deploy path for both the frontend a
     ```
     
 
-### Live Deployment
+## Live Deployment
 
 The current live URL is:
 
