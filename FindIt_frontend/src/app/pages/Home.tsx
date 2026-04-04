@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MessageSquare, Plus } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Navbar } from '../components/Navbar';
 import { ReportChatModal } from '../components/ReportChatModal';
 import { ReportCard } from '../components/ReportCard';
@@ -17,7 +17,8 @@ import {
     type LostReport,
     type MapReport,
 } from '../lib/api';
-import { getStoredSession } from '../lib/auth';
+import { useAuth } from '../lib/auth';
+import { buildAuthRedirectState } from '../lib/auth-routing';
 
 const transparentStyleImage = {
     width: 1,
@@ -26,7 +27,9 @@ const transparentStyleImage = {
 };
 
 export function Home() {
-    const session = getStoredSession();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { session } = useAuth();
     const currentUserId = session?.user.id ?? null;
     const [lostReports, setLostReports] = useState<LostReport[]>([]);
     const [mapPins, setMapPins] = useState<MapReport[]>([]);
@@ -105,6 +108,11 @@ export function Home() {
     }, [session?.token]);
 
     const openFoundModal = (report: LostReport) => {
+        if (!session?.token) {
+            navigate('/login', { state: buildAuthRedirectState(location) });
+            return;
+        }
+
         if (report.owner?.id === currentUserId || report.status === 'found' || report.status === 'archived') {
             return;
         }
@@ -125,7 +133,12 @@ export function Home() {
     };
 
     const openChatModal = (report: LostReport) => {
-        if (!session?.token || !report.owner || report.owner.id === currentUserId) {
+        if (!session?.token) {
+            navigate('/login', { state: buildAuthRedirectState(location) });
+            return;
+        }
+
+        if (!report.owner || report.owner.id === currentUserId) {
             return;
         }
 

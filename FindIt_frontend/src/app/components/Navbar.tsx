@@ -1,9 +1,11 @@
 import { ClipboardList, MapPin, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "react-router";
+import { useAuth } from "../lib/auth";
 import { ProfileDropdown } from "./ProfileDropdown";
 
 export function Navbar() {
     const location = useLocation();
+    const { isAuthenticated } = useAuth();
     const searchParams = new URLSearchParams(location.search);
     const activeSettingsTab = searchParams.get("tab");
     const isHomePage = location.pathname === "/home";
@@ -25,24 +27,28 @@ export function Navbar() {
             }`}>
                 Home
             </Link>
-            <Link
-                to="/settings?tab=reports"
-                className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-                    isReportsPage ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-                <ClipboardList className="h-4 w-4" />
-                My Reports
-            </Link>
-            <Link
-                to="/settings?tab=messages"
-                className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
-                    isMessagesPage ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-                <MessageSquare className="h-4 w-4" />
-                Messages
-            </Link>
+            {isAuthenticated ? (
+                <>
+                    <Link
+                        to="/settings?tab=reports"
+                        className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
+                            isReportsPage ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                        <ClipboardList className="h-4 w-4" />
+                        My Reports
+                    </Link>
+                    <Link
+                        to="/settings?tab=messages"
+                        className={`inline-flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
+                            isMessagesPage ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                        <MessageSquare className="h-4 w-4" />
+                        Messages
+                    </Link>
+                </>
+            ) : null}
             <Link 
                 to="/report" 
                 className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-colors ${
@@ -53,7 +59,24 @@ export function Navbar() {
             >
                 Report Lost Item
             </Link>
-            <ProfileDropdown />
+            {isAuthenticated ? (
+                <ProfileDropdown />
+            ) : (
+                <>
+                    <Link
+                        to="/login"
+                        className="px-4 py-2 font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    >
+                        Sign In
+                    </Link>
+                    <Link
+                        to="/register"
+                        className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                        Create Account
+                    </Link>
+                </>
+            )}
             </div>
         </div>
         </nav>

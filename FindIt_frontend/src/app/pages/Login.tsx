@@ -1,19 +1,23 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { formatApiError, login } from "../lib/api";
-import { saveSession } from "../lib/auth";
+import { useAuth } from "../lib/auth";
+import { getPostAuthRedirectPath } from "../lib/auth-routing";
 
 export default function Login() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { saveSession } = useAuth();
     const [showPassword, setShowPassword] = useState(false); //useState to toggle password visibility
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const redirectTo = getPostAuthRedirectPath(location.state);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,7 +31,7 @@ export default function Login() {
             });
 
             saveSession(session);
-            navigate("/home");
+            navigate(redirectTo, { replace: true });
         } catch (error) {
             setErrorMessage(formatApiError(error));
         } finally {
@@ -129,7 +133,11 @@ export default function Login() {
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600">
                             Don't have an account?{' '}
-                            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+                            <Link
+                                to="/register"
+                                state={location.state}
+                                className="text-blue-600 hover:text-blue-700 font-medium"
+                            >
                                 Sign up for free
                             </Link>
                         </p>

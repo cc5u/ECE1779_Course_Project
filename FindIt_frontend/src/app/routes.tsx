@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router";
+import { ProtectedRoute, PublicOnlyRoute } from "./components/AuthRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { Home } from "./pages/Home";
@@ -7,27 +8,37 @@ import Settings from "./pages/Setting";
 
 export const router = createBrowserRouter([
     {
-        path: "/",
-        Component: Login,
-    },
-    {
-        path: "/login",
-        Component: Login,
-    },
-    {
-        path: "/register",
-        Component: Register,
+        Component: PublicOnlyRoute,
+        children: [
+            {
+                path: "/",
+                Component: Login,
+            },
+            {
+                path: "/login",
+                Component: Login,
+            },
+            {
+                path: "/register",
+                Component: Register,
+            },
+        ],
     },
     {
         path: "/home",
         Component: Home,
     },
     {
-        path: "/report",
-        Component: ReportLostItem,
-    },
-    {
-        path: "/settings",
-        Component: Settings,
+        Component: ProtectedRoute,
+        children: [
+            {
+                path: "/report",
+                Component: ReportLostItem,
+            },
+            {
+                path: "/settings",
+                Component: Settings,
+            },
+        ],
     },
 ]);

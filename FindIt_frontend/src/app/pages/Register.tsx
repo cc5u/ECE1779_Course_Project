@@ -1,14 +1,17 @@
 import { useState } from "react";
-import {Link, useNavigate } from "react-router";
+import {Link, useLocation, useNavigate } from "react-router";
 import { MapPin, Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { formatApiError, register } from '../lib/api';
-import { saveSession } from '../lib/auth';
+import { useAuth } from '../lib/auth';
+import { getPostAuthRedirectPath } from '../lib/auth-routing';
 
 export default function Register() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { saveSession } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [formData, setFormData] = useState({
@@ -20,6 +23,7 @@ export default function Register() {
     }); // State to hold form data
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const redirectTo = getPostAuthRedirectPath(location.state);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,7 +45,7 @@ export default function Register() {
             });
 
             saveSession(session);
-            navigate('/home');
+            navigate(redirectTo, { replace: true });
         } catch (error) {
             setErrorMessage(formatApiError(error));
         } finally {
@@ -236,7 +240,11 @@ export default function Register() {
                     <div className="mt-6 text-center">
                         <p className="text-sm text-gray-600">
                             Already have an account?{' '}
-                        <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+                        <Link
+                            to="/login"
+                            state={location.state}
+                            className="text-blue-600 hover:text-blue-700 font-medium"
+                        >
                             Sign in
                         </Link>
                         </p>

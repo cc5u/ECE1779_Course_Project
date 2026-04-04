@@ -19,7 +19,7 @@ import {
     type ReportOwner,
     type Sighting,
 } from '../lib/api';
-import { getStoredSession } from '../lib/auth';
+import { useAuth } from '../lib/auth';
 
 export default function Settings() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -68,7 +68,7 @@ export default function Settings() {
         reportStatusLabel?: string;
         participant?: ReportOwner;
     } | null>(null);
-    const session = getStoredSession();
+    const { session } = useAuth();
     const requestedTab = searchParams.get('tab');
     const isStandaloneTab = activeTab === 'reports' || activeTab === 'messages';
 

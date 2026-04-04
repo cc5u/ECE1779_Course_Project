@@ -1,14 +1,14 @@
 import {useState, useRef, useEffect} from 'react';
 import {Settings, LogOut, Mail, Phone} from 'lucide-react';
 import {Link, useNavigate} from 'react-router';
-import { clearSession, getStoredSession } from '../lib/auth';
+import { useAuth } from '../lib/auth';
 import { getProfile } from '../lib/api';
 
 export function ProfileDropdown() {
     const [isOpen, setIsOpen] = useState(false); // State to track dropdown visibility
     const dropdownRef = useRef<HTMLDivElement>(null); // Ref for the dropdown element
     const navigate = useNavigate(); // Hook for navigation
-    const session = getStoredSession();
+    const { session, clearSession } = useAuth();
     const [reportCount, setReportCount] = useState(0);
 
     useEffect(() => {
@@ -57,7 +57,7 @@ export function ProfileDropdown() {
     const handleLogout = () => {
         setIsOpen(false); 
         clearSession();
-        navigate('/login');
+        navigate('/login', { replace: true });
     }; // Function to handle logout action
 
     return (
