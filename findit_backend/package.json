@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Backend API for UofT Lost and Found Hub",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=22 <25"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
