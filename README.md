@@ -262,10 +262,159 @@ _[Image of two users' chat window]_
 
 
 ## Development Guide
+## CI/CD Workflow
 
+The project uses two GitHub Actions workflows under .github/workflows:
+
+- backend-image.yml
+- frontend-image.yml
+
+When code is pushed to the `main` branch, the workflows:
+
+1. Check out the repository.
+2. Build backend or frontend Docker images.
+3. Push those images to Docker Hub.
+4. Install and authenticate `doctl`.
+5. Fetch the kubeconfig for the DigitalOcean Kubernetes cluster.
+6. Apply the relevant Kubernetes manifests.
+7. Update deployments to the new image tagged with the commit SHA.
+8. Wait for rollout success and report cluster status.
+
+This gives the team a reproducible build-and-deploy path for both the frontend and the backend.
+
+---
+
+## Kubernetes Deployment Guide
+
+1. Cluster Components
+    
+    The production Kubernetes deployment includes:
+    
+    - Frontend deployment and service
+    - Backend deployment and service
+    - PostgreSQL deployment and service
+    - Redis deployment and service
+    - NGINX Ingress routing
+    - ConfigMap and Secret-based runtime configuration
+2. Manifest Layout
+    
+    The main Kubernetes manifests live under deploy/k8s:
+    
+    - namespace.yaml
+    - backend-config.yaml
+    - backend.yaml
+    - frontend.yaml
+    - postgres.yaml
+    - redis.yaml
+    - ingress.yaml
+3. Step-by-Step Deployment Process
+    
+    ### **Step 1: Apply the Namespace**
+   ```bash
+   kubectl apply -f k8s/namespace.yaml
+   ```
+### **Step 2: Configure Secrets**
+
+You must create your secrets **before** deploying the database or backend. Use the template provided in the next section.
+
+```bash
+# Apply your populated secret.yaml
+kubectl apply -f k8s/secret.yaml
+```
+
+### **Step 3: Deploy the Data Layer**
+
+Deploy the stateful components first to ensure the backend can connect upon startup.
+
+```bash
+kubectl apply -f k8s/postgres.yaml
+kubectl apply -f k8s/redis.yaml
+```
+
+*Note: Ensure your PersistentVolumeClaims (PVCs) are bound successfully using `kubectl get pvc -n findit`.*
+
+### **Step 4: Deploy Application Services**
+
+Apply the configuration and then the application logic.
+
+```bash
+kubectl apply -f k8s/backend-config.yaml
+kubectl apply -f k8s/backend.yaml
+kubectl apply -f k8s/frontend.yaml
+```
+
+### **Step 5: Configure Routing (Ingress)**
+
+Apply the Ingress rules to expose the application to the internet.
+
+```bash
+kubectl apply -f k8s/ingress.yaml
+```
+
+4. Secret Management Template  
+    
+    We use the `stringData` field in our `secret.yaml`. This allows you to input plain-text values, which Kubernetes will automatically encode into Base64 upon application.
+    
+    ### **`secret.yaml` Template**
+    
+    ```yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: findit-secrets
+      namespace: findit
+    type: Opaque
+    stringData:
+      # Database Credentials
+      POSTGRES_PASSWORD: ""
+      DATABASE_URL: ""
+    
+      # Authentication
+      JWT_SECRET: ""
+      JWT_EXPIRES_IN: ""
+    
+      # Network Configuration
+      CORS_ORIGIN: ""
+      BASE_URL: ""
+      REDIS_URL: ""
+    
+      # DigitalOcean Spaces (Object Storage)
+      DO_SPACES_ENDPOINT: ""
+      DO_SPACES_BUCKET: ""
+      DO_SPACES_KEY: ""
+      DO_SPACES_SECRET: ""
+      DO_SPACES_REGION: ""
+      DO_SPACES_CDN_ENDPOINT: ""
+    ```
+    
+
+### Live Deployment
+
+The current live URL is:
+
+- `http://174.138.114.144/`
+
+Routing is handled through Kubernetes ingress:
+
+- `/` -> frontend service
+- `/api` -> backend service
+- `/ws` -> backend WebSocket endpoint
+- `/uploads` -> backend uploads/static content
 
 ## AI Assistance & Verification
+AI tools were used as engineering support during development, especially for infrastructure exploration, deployment debugging, and YAML iteration. 
 
+1. Contributions:
+    
+    AI assisted in crafting complex Kubernetes Ingress YAML configurations and troubleshooting Prisma P1000 connection errors during the rolling update phase. In practice, this was most helpful when diagnosing Kubernetes rollout failures, ingress routing mistakes, and environment configuration issues between local Docker Compose and production Kubernetes.
+    
+2. Representative Mistake: 
+    
+    A representative example of an incorrect AI suggestion was using `127.0.0.1` for service-to-service communication in the Kubernetes version of the system. That approach is incorrect because containers in different pods do not share localhost. We corrected this by routing services through Kubernetes DNS and ingress instead.
+    
+3.  Verification: 
+    
+    All AI-generated configurations were verified via kubectl logs, kubectl describe, and manual load testing to ensure production stability, such as `kubectl get pods`, `kubectl describe`, `kubectl logs`, GitHub Actions run logs, and direct browser testing of the live application.
 
 ## Individual Contribution
 | Team member | Contributions |
