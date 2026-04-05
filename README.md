@@ -125,6 +125,7 @@ Our system was implemented as a **full-stack containerized web application** wit
 
       - **`kube-state-metrics`** installed in the `kube-system` namespace to expose Kubernetes object-state metrics
       - **Grafana** installed in the `monitoring` namespace through the `grafana/grafana` Helm chart
+      <img src="images/grafana.JPG?raw=true" alt="grafana" width="50%" />
       - **Prometheus** installed in the `monitoring` namespace through the `prometheus-community/prometheus` Helm chart
 
       This setup gives us both raw metrics endpoints and dashboard-based visualization.
@@ -134,6 +135,11 @@ Our system was implemented as a **full-stack containerized web application** wit
       - **Operational debugging:** Monitoring complements `kubectl logs`, `kubectl describe`, rollout checks, and backend health endpoints during deployment troubleshooting.
       - **Dashboard-based review:** Grafana provides a more readable view of resource trends and workload health than raw command-line inspection alone.
       - **Prometheus query support:** Prometheus gives us a central interface for scraping and querying cluster metrics exposed by installed exporters.
+      - **DigitalOcean Built-in Tool:** We use the DigitalOcean built-in tools to inspect the CPU, memory, and disk usages. Also, set the alerts when these usages exceeding the 70%.
+         <p align="center">
+            <img src="images/graph.JPG?raw=true" alt="Droplet level metrics" width="48%" />
+            <img src="images/alert.JPG?raw=true" alt="Alerts" width="48%" />
+         </p>
 
 6. CI/CD and Delivery Pipeline
 
@@ -198,6 +204,9 @@ FindIt provides an end-to-end workflow for **reporting, browsing, and resolving 
    - **Cloud-Based Image Storage:**
 
      The system supports image uploads for reports and sightings. Image uploads are designed to work with DigitalOcean Spaces so that uploaded content is stored outside the application container lifecycle, while the backend can also fall back to local /uploads storage when object storage is not configured.
+
+      <img src="images/storage.JPG?raw=true" alt="DO spaces" width="48%" />
+
 
    - **Containerized Deployment Model:**
 
