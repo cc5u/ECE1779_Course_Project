@@ -125,24 +125,39 @@ Our system was implemented as a **full-stack containerized web application** wit
 
       - **`kube-state-metrics`** installed in the `kube-system` namespace to expose Kubernetes object-state metrics
       - **Grafana** installed in the `monitoring` namespace through the `grafana/grafana` Helm chart
-      <img src="images/grafana.JPG?raw=true" alt="grafana" width="50%" />
+
+      <p align="center">
+         <img src="images/grafana.JPG?raw=true" alt="grafana" width="50%" />
+      </p>
+
       - **Prometheus** installed in the `monitoring` namespace through the `prometheus-community/prometheus` Helm chart
 
       This setup gives us both raw metrics endpoints and dashboard-based visualization.
 
       - **Cluster visibility:** We can inspect pod, deployment, service, and namespace-level behavior through Kubernetes metrics.
-      <img src="images/insights.JPG?raw=true" alt="pods insights" width="50%" />
+
+      <p align="center">
+         <img src="images/insights.JPG?raw=true" alt="pods insights" width="50%" />
+      </p>
+
       - **Operational debugging:** Monitoring complements `kubectl logs`, `kubectl describe`, rollout checks, and backend health endpoints during deployment troubleshooting.
       - **Dashboard-based review:** Grafana provides a more readable view of resource trends and workload health than raw command-line inspection alone.
       - **Prometheus query support:** Prometheus gives us a central interface for scraping and querying cluster metrics exposed by installed exporters.
       - **DigitalOcean Built-in Tool:** We use the DigitalOcean built-in tools to inspect the CPU, memory, and disk usages. Also, set the alerts when these usages exceeding the 70%.
-         <p align="center">
-            <img src="images/graph.JPG?raw=true" alt="Droplet level metrics" width="48%" />
-            <img src="images/alert.JPG?raw=true" alt="Alerts" width="48%" />
-         </p>
+
+      <p align="center">
+         <img src="images/graph.JPG?raw=true" alt="Droplet level metrics" width="48%" />
+      </p>
+
+      <p align="center">
+         <img src="images/alert.JPG?raw=true" alt="Alerts" width="48%" />
+      </p>
+
 
 6. CI/CD and Delivery Pipeline
-
+   <p align="center">
+      <img src="images/CICD.JPG?raw=true" alt="CI/CD" width="48%" />
+   </p>
    1. GitHub Actions:
 
       The project uses GitHub Actions for automated build and deployment workflows. Separate workflows handle frontend and backend image delivery.
@@ -484,7 +499,7 @@ AI tools were used as engineering support during development, especially for inf
 ## Individual Contribution
 | Team member | Contributions |
 |-------------|---------------|
-| I-Hsuan Ho | • Contributed primarily on 3D map intergration and Kubernetes, Grafana, Prometheus utilization.<br>• Built the kubernetes CICD workflow, and contributed to the project proposal and final deliverables.|
+| I-Hsuan Ho | • Contributed primarily on 3D map intergration and Kubernetes, Grafana, Prometheus utilization.<br>• Built the kubernetes CI/CD workflow, and contributed to the project proposal and final deliverables.|
 | Cheng-Kai Weng | My contribution to FindIt focused on backend development, including API implementation, database schema design, authentication, and WebSocket-based real-time features |
 | Kuan-Yu Chang | Contributed primarily on the FindIt_frontend , and main branches. Tested and validated API endpoints for frontend. Contributed to the project proposal and final deliverables. Contributed WebSocket chat message, map integration and other real-time functioning. |
 | Chia-Chun Wu | • Contributed primarily on the `backend_dev` and `main` branches.<br>• Implement CI/CD workflow using GitHub Action.<br>• Deploy application using Docker Swarm.<br>• Help implemented the frontend logic for API integration.<br>• Add Redis Pub/Sub service.<br>• Clean up frontend unused UI.<br>• Contributed to the project proposal and final deliverables.|
