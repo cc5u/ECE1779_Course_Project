@@ -1,13 +1,13 @@
 ## Session Title 
-Image on report lost card was not updated in real-time
+The image on the report lost card was not updated in real-time
  
-### Prompt (you sent to AI)
+### Prompt
  
-I found that when user create a report, the image cannot be shown instantly in other user view, they need to refresh to get the image, why is that?
+I found that when a user create a report, the image cannot be shown instantly in another user view, they need to refresh to get the image, why is that?
  
 ### AI Response
  
-The image problem happened because report creation and image upload are two separate calls in ReportLostItem.tsx (line 199). Before this change, other users got the realtime report_created event before the second upload call completed, and there was no follow-up websocket event after the image was saved. So other clients kept showing the report without images until a manual refresh.
+The image problem happened because report creation and image upload are two separate calls in ReportLostItem.tsx (line 199). Before this change, other users got the real-time report_created event before the second upload call completed, and there was no follow-up websocket event after the image was saved. So other clients kept showing the report without images until a manual refresh.
  
 ### What Your Team Did With It
  
