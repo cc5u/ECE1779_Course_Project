@@ -244,7 +244,7 @@ FindIt provides an end-to-end workflow for **reporting, browsing, and resolving 
 
 The application is organized around three main user workflows: **report lost items**, **report sightings**, and **send messages in real time**.
 
-**1. Account Registration and Login**
+#### 1. Account Registration and Login
 
    When the application is opened, the user first sees the welcome page. New users can create an account by entering a username, email, and password. Existing users can log in using their email and password. Authentication is required for features like reporting a lost item, viewing personal reports, and accessing messages.
 
@@ -264,17 +264,26 @@ The application is organized around three main user workflows: **report lost ite
       <img src="images/lost_report.png?raw=true" alt="lost report" width="48%" />
    </p>
 
+
 #### 3. Browsing Reports
 
    Users can browse active reports on the interactive map and through the report interface. This helps campus users identify nearby or relevant cases without scanning through unstructured messages.
 
-_[Image for the home page]_
+
+<table align="center">
+  <tr>
+    <td valign="top" width="48%">
+      <img src="images/home.png?raw=true" alt="Home" width="100%" />
+      <br /><br />
+    </td>
+</table>
 
 #### 4. Real-Time Messaging
 
    When a user finds a relevant report, they can use the built-in messaging flow to communicate with the original poster. This reduces the need for external communication channels and keeps discussion attached to the report context.
 
-_[Image of two users' chat window]_
+
+   <img src="images/chat.png?raw=true" alt="Chat" width="100%" />
 
 #### 5. Managing Report Status
 
@@ -475,10 +484,10 @@ AI tools were used as engineering support during development, especially for inf
 ## Individual Contribution
 | Team member | Contributions |
 |-------------|---------------|
-| I-Hsuan Ho | |
-| Cheng-Kai Weng | |
-| Kuan-Yu Chang | |
-| Chia-Chun Wu | |
+| I-Hsuan Ho | • Contributed primarily on 3D map intergration and Kubernetes, Grafana, Prometheus utilization.<br>• Built the kubernetes CICD workflow, and contributed to the project proposal and final deliverables.|
+| Cheng-Kai Weng | My contribution to FindIt focused on backend development, including API implementation, database schema design, authentication, and WebSocket-based real-time features |
+| Kuan-Yu Chang | Contributed primarily on the FindIt_frontend , and main branches. Tested and validated API endpoints for frontend. Contributed to the project proposal and final deliverables. Contributed WebSocket chat message, map integration and other real-time functioning. |
+| Chia-Chun Wu | • Contributed primarily on the `backend_dev` and `main` branches.<br>• Implement CI/CD workflow using GitHub Action.<br>• Deploy application using Docker Swarm.<br>• Help implemented the frontend logic for API integration.<br>• Add Redis Pub/Sub service.<br>• Clean up frontend unused UI.<br>• Contributed to the project proposal and final deliverables.|
 
 
 ## Lessons Learned and Conclusion
