@@ -495,7 +495,7 @@ AI tools were used as engineering support during development, especially for inf
 ## Individual Contribution
 | Team member | Contributions |
 |-------------|---------------|
-| I-Hsuan Ho | |
+| I-Hsuan Ho | Contributed primarily on 3D map intergration and Kubernetes, Grafana, Prometheus utilization. Built the kubernetes CICD workflow, and contributed to the project proposal and final deliverables.|
 | Cheng-Kai Weng | |
 | Kuan-Yu Chang | |
 | Chia-Chun Wu | |
