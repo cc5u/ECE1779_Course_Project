@@ -253,7 +253,7 @@ The application is organized around three main user workflows: **report lost ite
 <table align="center">
   <tr>
     <td valign="top" width="48%">
-      <img src="images/welcome.png?raw=true" alt="Training metrics" width="100%" />
+      <img src="images/welcome.png?raw=true" alt="Welcome" width="100%" />
       <br /><br />
     </td>
 </table>
@@ -267,7 +267,7 @@ The application is organized around three main user workflows: **report lost ite
 <table align="center">
   <tr>
     <td valign="top" width="48%">
-      <img src="images/lost_report.png?raw=true" alt="Training metrics" width="100%" />
+      <img src="images/lost_report.png?raw=true" alt="Lost Report" width="100%" />
       <br /><br />
     </td>
 </table>
@@ -276,13 +276,25 @@ The application is organized around three main user workflows: **report lost ite
 
    Users can browse active reports on the interactive map and through the report interface. This helps campus users identify nearby or relevant cases without scanning through unstructured messages.
 
-_[Image for the home page]_
+<table align="center">
+  <tr>
+    <td valign="top" width="48%">
+      <img src="images/home.png?raw=true" alt="Home" width="100%" />
+      <br /><br />
+    </td>
+</table>
 
  4. Real-Time Messaging
 
    When a user finds a relevant report, they can use the built-in messaging flow to communicate with the original poster. This reduces the need for external communication channels and keeps discussion attached to the report context.
 
-_[Image of two users' chat window]_
+<table align="center">
+  <tr>
+    <td valign="top" width="48%">
+      <img src="images/chat.png?raw=true" alt="Chat" width="100%" />
+      <br /><br />
+    </td>
+</table>
 
  5. Managing Report Status
 
