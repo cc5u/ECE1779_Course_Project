@@ -313,7 +313,7 @@ The application is organized around three main user workflows: **report lost ite
 1. Environment Setup
    **Environment Configuration**: 
    Clone the repo and create a `.env` file using the provided `.env.example` in both `findit_backend` and `Findit_frontend`.
-   Entering the fields for backend `.env`, uncomment the `VITE_DEV_PROXY_TARGET`, `VITE_WS_BASE_URL`, and `VITE_DEV_PROXY_TARGET` and set those urls 
+   Entering the fields for backend `.env`, uncomment the `VITE_DEV_PROXY_TARGET`, `VITE_API_BASE_URL`, and `VITE_WS_BASE_URL` and set those urls 
     
 2. Start the Local Stack
     To run the backend dependencies locally, use Docker Compose from the backend directory:
