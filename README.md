@@ -1,7 +1,7 @@
 # Find It
 
 ## Video Demo
-Link: 
+Link: https://youtu.be/JEyQ_x0Gg00
 
 ## Team Information
 | Team member | Student number | Email |
