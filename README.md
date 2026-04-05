@@ -244,47 +244,39 @@ FindIt provides an end-to-end workflow for **reporting, browsing, and resolving 
 
 The application is organized around three main user workflows: **report lost items**, **report sightings**, and **send messages in real time**.
 
-1. Account Registration and Login
+**1. Account Registration and Login**
 
    When the application is opened, the user first sees the welcome page. New users can create an account by entering a username, email, and password. Existing users can log in using their email and password. Authentication is required for features like reporting a lost item, viewing personal reports, and accessing messages.
 
    An unauthenticated user can still visit the home page at `/home`, but browsing is limited to viewing the map.
 
-<table align="center">
-  <tr>
-    <td valign="top" width="48%">
-      <img src="images/welcome.png?raw=true" alt="Training metrics" width="100%" />
-      <br /><br />
-    </td>
-</table>
+   <p align="center">
+      <img src="images/login.png?raw=true" alt="Login" width="48%" />
+      <img src="images/signup.png?raw=true" alt="Sign up" width="48%" />
+   </p>
 
- 2. Reporting a Lost Item
+ #### 2. Reporting a Lost Item
 
    Users can create a new report by clicking the `Report Lost Item` button in the navigation bar or the `+` button on the map to open the report window. By providing useful information such as the item name, description, lost date and time, and search location, either by typing an address or clicking directly on the map, the user can submit the report by clicking `Submit report`.
 
    Users can also upload images optionally. The application accepts `.png`, `.webp`, `.jpg`, and `.jpeg` files. Newly created reports are broadcast in real time so all users can see them on the home page.
+   <p align="center">
+      <img src="images/lost_report.png?raw=true" alt="lost report" width="48%" />
+   </p>
 
-<table align="center">
-  <tr>
-    <td valign="top" width="48%">
-      <img src="images/lost_report.png?raw=true" alt="Training metrics" width="100%" />
-      <br /><br />
-    </td>
-</table>
-
- 3. Browsing Reports
+#### 3. Browsing Reports
 
    Users can browse active reports on the interactive map and through the report interface. This helps campus users identify nearby or relevant cases without scanning through unstructured messages.
 
 _[Image for the home page]_
 
- 4. Real-Time Messaging
+#### 4. Real-Time Messaging
 
    When a user finds a relevant report, they can use the built-in messaging flow to communicate with the original poster. This reduces the need for external communication channels and keeps discussion attached to the report context.
 
 _[Image of two users' chat window]_
 
- 5. Managing Report Status
+#### 5. Managing Report Status
 
    Users can view and manage their reports, including updating the status when an item has been recovered. This keeps the map and listings more accurate over time and prevents stale reports from remaining active indefinitely.
 
